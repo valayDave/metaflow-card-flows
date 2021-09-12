@@ -1,0 +1,5 @@
+SIGIR-ecom-data-challenge/
+.env/
+.metaflow/
+.DS_Store
+metaflow_card_cache
