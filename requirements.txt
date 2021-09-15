@@ -1,2 +1,6 @@
 git+https://github.com/valayDave/custom-metaflow-cards
 git+https://github.com/valayDave/metaflow.git@metaflow-cards-convergence
+pandas
+pyarrow
+s3fs
+fsspec

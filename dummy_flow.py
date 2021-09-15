@@ -7,7 +7,7 @@ class DummyCardFlow(FlowSpec):
         self.x = 1
         self.next(self.process)
 
-    @card(type='custom_score_card')
+    @card(type='basic',id='testcard')
     @step
     def process(self):
         self.next(self.end)
