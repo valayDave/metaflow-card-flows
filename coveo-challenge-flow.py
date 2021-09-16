@@ -16,11 +16,14 @@ class CoveoChallengeFlow(FlowSpec):
 
     @step
     def start(self):
+        """
+        
+        """
         assert self.browsing_path_parquet  is not None and 's3://' in self.browsing_path_parquet
         # setup Dataloading and necessary pre-processing of the data
         from process_data import process_browsing_train
         processed_data = process_browsing_train(self.browsing_path_parquet,num_rows=self.num_rows)
-
+        print(f"Dataframe has the following columns {processed_data.columns}")
         # save as parquet onto S3
         with S3(run=self) as s3:
             # save s3 paths in dict
@@ -31,7 +34,20 @@ class CoveoChallengeFlow(FlowSpec):
             self.train_data_path = data_path
 
         print(self.train_data_path)
+        self.next(self.prepare_dataset)
+    
+    @step
+    def prepare_dataset(self):
+        """
+        Read in raw session data and build a labelled dataset for purchase/abandonment prediction
+        """
+        from prepare_dataset import prepare_dataset
+
+        self.dataset = prepare_dataset(training_file=self.train_data_path,
+                                       K=self.num_rows)
+
         self.next(self.train_model)
+
 
     @step
     def train_model(self):

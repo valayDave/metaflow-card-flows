@@ -4,3 +4,6 @@ pandas
 pyarrow
 s3fs
 fsspec
+pytorch_lightninig
+transformers
+einops
