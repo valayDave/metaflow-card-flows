@@ -3,3 +3,5 @@ SIGIR-ecom-data-challenge/
 .metaflow/
 .DS_Store
 metaflow_card_cache
+__pycache__
+local.env
