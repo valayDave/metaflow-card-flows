@@ -5,24 +5,22 @@ import torch
 
 
 class ProductTokenizer:
-    def __init__(self,session_lists,special_tokens=['[MASK]']) -> None:
+    def __init__(self,session_lists) -> None:
         self.unique_products = list(set([prod for prod_list in session_lists for prod in prod_list]))
+        special_tokens=['[MASK]','[PAD]']
         self.unique_products.extend(special_tokens)
         self.token_dict = {product:idx+1 for idx,product in enumerate(self.unique_products)}
     
     def __len__(self):
-        # todo : fill
-        pass
+        return len(self.token_dict)
 
     @property
     def pad_token_id(self):
-        # todo : fill
-        pass
+        return self.token_dict['[PAD]']
 
     @property
     def mask_token(self):
-        # todo : fill
-        pass
+        return self.token_dict['[MASK]']
     
     def convert_tokens_to_ids(self,token):
         # todo :optimize
@@ -51,7 +49,7 @@ class ProductTokenizer:
             return padded_ten, mask
         elif padding_len == 0:
             return tensr, torch.empty(max_len).fill_(1)
-        else:
+        else: # This will truncate the tensor if the length is larger than the max_len
             return tensr[:padding_len], torch.empty(max_len).fill_(1)
 
     def encode(self,product_list,to_tensor=False):
@@ -75,7 +73,7 @@ class ProductMaskCollateFn:
 
     @staticmethod
     def mask_tokens(inputs, tokenizer:ProductTokenizer, mlm_probability=0.15):
-        """ Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original. """
+        """ Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 20% original. """
         labels = inputs.clone()
         # We sample a few tokens in each sequence for masked-LM training (with probability args.mlm_probability defaults to 0.15 in Bert/RoBERTa)
         probability_matrix = torch.full(labels.shape, mlm_probability)
@@ -92,11 +90,20 @@ class ProductMaskCollateFn:
         return inputs, labels
 
     def __call__(self,batch):
-        # todo : fill collate_fn 
+        products = []
+        mask = []
+        labels= []
         for b in batch:
-            pass
-
-
+            product_tensor,mask_tensor = b
+            masked_tokens, label_tensor = self.mask_tokens(product_tensor,self.tokenizer,mlm_probability=self.mlm_probability)
+            products.append(masked_tokens)
+            mask.append(mask_tensor)
+            labels.append(label_tensor)
+        return (
+            torch.stack(products),
+            torch.stack(mask),
+            torch.stack(labels)
+        )
 # Training Pipeline : 
 class ProductDataset(Dataset):
     def __init__(self,session_list,max_len=50) -> None:
@@ -104,7 +111,6 @@ class ProductDataset(Dataset):
         self._tokenizer = ProductTokenizer(session_list)
         self._session_list = session_list
         self._tokenized_dataset = self._tokenizer.encode_batch(self._session_list,max_len=max_len)
-        # todo : tokenize the product ids over here. 
 
     def __len__(self):
         return len(self._tokenized_dataset)
