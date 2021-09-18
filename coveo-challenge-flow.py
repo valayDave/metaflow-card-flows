@@ -4,7 +4,7 @@ import os
 
 class CoveoChallengeFlow(FlowSpec):
     """
-    Take the browsing data and create a new 
+    TODO : explain what the flows does.  
     """
     num_rows = Parameter('num-rows',default = 1000000,type=int,help='The number of rows from the dataset to use for Training.')
 
@@ -42,7 +42,10 @@ class CoveoChallengeFlow(FlowSpec):
         Read in raw session data and build a labelled dataset for purchase/abandonment prediction
         """
         from prepare_dataset import prepare_dataset
-
+        
+        # This creates a dictionary of train and validation datasets. 
+        # Dictionary of the form : {'train': [[prod_id,prod_id,..]],'val':[]}
+        # todo : Make this into a hdf5 process. 
         self.dataset = prepare_dataset(training_file=self.train_data_path,
                                        K=self.num_rows)
 
@@ -54,6 +57,10 @@ class CoveoChallengeFlow(FlowSpec):
         # todo : setup Hyperparameters
         # todo : Find a fast and optimal way to play around with 36M browsing events, 8M search events, 66k Products ;
         # todo : Fan this into a foreach if necessary
+        from dataloader import get_dataloader
+        from models import ProductRecommendationNet
+        from pytorch_lightning import Trainer
+        # todo : add training script ; fill empty abstractions
         self.next(self.test_model)
 
     @step
