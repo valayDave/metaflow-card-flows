@@ -8,6 +8,9 @@ import csv
 import pandas as pd
 import random
 
+def read_product_ids(product_id_file):
+    df = pd.read_parquet(product_id_file)
+    return df['product_sku_hash'].unique().tolist()
 
 def prepare_dataset(training_file: str, K: int = None):
     """

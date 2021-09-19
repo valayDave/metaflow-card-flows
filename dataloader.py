@@ -3,11 +3,14 @@ from torch.utils.data.dataloader import DataLoader
 from torch import LongTensor
 import torch
 
-
+MASK_TOKEN = '[MASK]'
+PAD_TOKEN = '[PAD]'
 class ProductTokenizer:
-    def __init__(self,session_lists) -> None:
-        self.unique_products = list(set([prod for prod_list in session_lists for prod in prod_list]))
-        special_tokens=['[MASK]','[PAD]']
+    # Tokenization happens prior to dataset creation
+    # Takes unique tokens and creates a token dictionary for the object 
+    def __init__(self,unique_tokens) -> None:
+        self.unique_products = unique_tokens
+        special_tokens=[MASK_TOKEN,PAD_TOKEN]
         self.unique_products.extend(special_tokens)
         self.token_dict = {product:idx+1 for idx,product in enumerate(self.unique_products)}
     
@@ -16,15 +19,15 @@ class ProductTokenizer:
 
     @property
     def pad_token_id(self):
-        return self.token_dict['[PAD]']
+        return self.token_dict[PAD_TOKEN]
 
     @property
     def mask_token(self):
-        return self.token_dict['[MASK]']
+        return MASK_TOKEN
     
     def convert_tokens_to_ids(self,token):
         # todo :optimize
-        return self.decode([token])[0]
+        return self.encode([token])[0]
 
     def encode_batch(self,product_lists,max_len = 50):
         encoded_products = []
@@ -32,9 +35,10 @@ class ProductTokenizer:
         for product_list in product_lists:
             tensor = self.encode(product_list,to_tensor=True)
             padded_tensor, mask = self.create_padding_and_mask(tensor,max_len)
+            masks.append(mask)
             encoded_products.append(padded_tensor)
         
-        return TensorDataset(torch.stack(encoded_products),torch.stack(mask))
+        return TensorDataset(torch.stack(encoded_products),torch.stack(masks))
     
     @staticmethod
     def create_padding_and_mask(tensr, max_len, pad_value=0):
@@ -53,7 +57,11 @@ class ProductTokenizer:
             return tensr[:padding_len], torch.empty(max_len).fill_(1)
 
     def encode(self,product_list,to_tensor=False):
-        tokens = [self.token_dict[product] for product in product_list]
+        tokens = []
+        for product in product_list:
+            if product not in self.token_dict:
+                raise Exception("Unknow Token")
+            tokens.append(self.token_dict[product])
         if to_tensor:
             return LongTensor(tokens)
         return tokens
@@ -87,30 +95,35 @@ class ProductMaskCollateFn:
         inputs[indices_replaced] = tokenizer.convert_tokens_to_ids(tokenizer.mask_token)
 
         # The rest of the time (20% of the time) we keep the masked input tokens unchanged
-        return inputs, labels
+        return inputs.long(), labels.long()
 
     def __call__(self,batch):
         products = []
         mask = []
-        labels= []
+        masked_tokens = []
         for b in batch:
             product_tensor,mask_tensor = b
-            masked_tokens, label_tensor = self.mask_tokens(product_tensor,self.tokenizer,mlm_probability=self.mlm_probability)
-            products.append(masked_tokens)
+            masked_tokens.append(product_tensor)
             mask.append(mask_tensor)
-            labels.append(label_tensor)
+
+        products, labels = self.mask_tokens(torch.stack(masked_tokens),self.tokenizer,mlm_probability=self.mlm_probability)
         return (
-            torch.stack(products),
+            products,
             torch.stack(mask),
-            torch.stack(labels)
+            labels
         )
-# Training Pipeline : 
+
 class ProductDataset(Dataset):
-    def __init__(self,session_list,max_len=50) -> None:
+    def __init__(self,session_list,max_len=50,tokenizer:ProductTokenizer=None) -> None:
         super().__init__()
-        self._tokenizer = ProductTokenizer(session_list)
+        assert tokenizer is not None
+        self._tokenizer = tokenizer
         self._session_list = session_list
         self._tokenized_dataset = self._tokenizer.encode_batch(self._session_list,max_len=max_len)
+    
+    @property
+    def tokenizer(self):
+        return self._tokenizer
 
     def __len__(self):
         return len(self._tokenized_dataset)
@@ -122,9 +135,10 @@ class ProductDataset(Dataset):
         return ProductMaskCollateFn(self._tokenizer)
 
 
-def get_dataloader(sessions,batch_size=40,max_seq_len=50):
+
+def get_dataloader(sessions,batch_size=40,max_seq_len=50,tokenizer=None):
     dataset = ProductDataset(
-        sessions,max_len=max_seq_len
+        sessions,max_len=max_seq_len,tokenizer=tokenizer
     )
     return DataLoader(
         dataset,
