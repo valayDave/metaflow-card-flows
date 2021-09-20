@@ -1,5 +1,5 @@
 # Todo : Add Flow relating to the coveo challenge flow over here.
-from metaflow import FlowSpec,step,batch,S3,Parameter,batch,conda
+from metaflow import FlowSpec,step,batch,S3,Parameter,batch,conda,IncludeFile
 import os
 
 class CoveoChallengeFlow(FlowSpec):
@@ -28,7 +28,13 @@ class CoveoChallengeFlow(FlowSpec):
         default=1,type=int,help='Maximum number of epochs to train model.'
     )
 
-
+    num_gpus = Parameter(
+        'num-gpus',
+        envvar="NUM_GPUS",\
+        default=0,type=int,help='Number of GPUs to use when training the model.'
+    )
+    
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.2')
     @step
     def start(self):
         """
@@ -53,6 +59,7 @@ class CoveoChallengeFlow(FlowSpec):
         
         self.next(self.prepare_dataset)
     
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.2')
     @step
     def prepare_dataset(self):
         """
@@ -69,6 +76,7 @@ class CoveoChallengeFlow(FlowSpec):
         self.next(self.train_model)
 
 
+    @batch(cpu=4,memory=12000,gpu=2,image='valayob/coveo-challenge-flow-image:0.2')
     @step
     def train_model(self):
         # todo : integrate hyper parameter input + setup + search
@@ -86,7 +94,7 @@ class CoveoChallengeFlow(FlowSpec):
             self.dataset['train'],batch_size=self.batch_size,tokenizer=self.tokenizer
         )
         validation_loader = dataloader.get_dataloader(
-            self.dataset['train'],batch_size=self.batch_size,tokenizer=self.tokenizer
+            self.dataset['valid'],batch_size=self.batch_size,tokenizer=self.tokenizer
         )
         from pytorch_lightning.loggers import CSVLogger
         logger = CSVLogger("logs", name=current.run_id)
@@ -100,6 +108,7 @@ class CoveoChallengeFlow(FlowSpec):
             max_epochs=self.max_epochs,\
             progress_bar_refresh_rate=25,\
             logger=logger,
+            gpus=self.num_gpus,
             callbacks=[model_checkpoint]
         )
         

@@ -1,9 +1,10 @@
 git+https://github.com/valayDave/custom-metaflow-cards
 git+https://github.com/valayDave/metaflow.git@metaflow-cards-convergence
 pandas
+awscli
 pyarrow
 s3fs
 fsspec
-pytorch_lightninig
+pytorch-lightning
 transformers
 einops
