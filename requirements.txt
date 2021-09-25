@@ -1,5 +1,5 @@
 git+https://github.com/valayDave/custom-metaflow-cards
-git+https://github.com/valayDave/metaflow.git@metaflow-cards-convergence
+git+https://github.com/valayDave/metaflow.git@mf-cards-on-master
 pandas
 awscli
 pyarrow
