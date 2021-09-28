@@ -1,6 +1,7 @@
 from metaflow.plugins.card_modules.card import MetaflowCard
 from metaflow.plugins.card_modules import chevron as pt
 import os
+import json
 from .charts.chartjs import chart_builder,ChartConfig
 from .tables import create_table
 
@@ -98,18 +99,18 @@ class CoveoDataProcessingCard(MetaflowCard):
         )
 
         chart_options = {
-            "options": {
-                "scales": {
+            "scales": {
                     "y": {
                         "title": {
+                            "display":True,
                             "text": chart["ylabel"]
                         }
                     },
                     "x": {
                         "title": {
+                            "display":True,
                             "text": chart["xlabel"]
                         }
-                    }
                 }
             }
         }

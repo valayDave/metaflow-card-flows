@@ -1,4 +1,5 @@
 import os 
+import json
 from dataclasses import dataclass, asdict
 from metaflow.plugins.card_modules import chevron as pt
 
@@ -75,8 +76,8 @@ class Chart:
             CHART_SCRIPT_TEMPLATE,
             data=dict(
                 chart_id=self._id,
-                data_object=self._dataobject,
+                data_object=json.dumps(self._dataobject),
                 chart_type = self._type,
-                chart_options=self._options
+                chart_options=json.dumps(self._options)
             )
         )
