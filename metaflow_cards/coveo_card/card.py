@@ -4,6 +4,7 @@ import os
 import json
 from .charts.chartjs import chart_builder,ChartConfig
 from .tables import create_table
+from .images import create_image,get_base64image
 
 ABS_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 RENDER_TEMPLATE_PATH = os.path.join(ABS_DIR_PATH,'base.html')
@@ -49,11 +50,10 @@ DEFAULT_IMAGES = [
     {
         "caption":"", # Caption for the image.
         # The "key" is the key to match in Task object to retrieve the image. 
-        # This assumes that the image is present in the object. 
-        # Ideal expectation is an image
         "key" : "",  
-        # Actual path to the image to use for the 
-        "path": ""
+        # Actual `key` to the path to the image to use for the 
+        "path_key": "",
+        "path_type": "remote" # Can be of type remote or s3
     },
 ]
 
@@ -79,27 +79,27 @@ class CoveoDataProcessingCard(MetaflowCard):
         self._table_cells = table_cells
         self._table_heading = table_heading
         self._images = images
-        # self._body_scripts and self._body_css will be 
         self._body_scripts = body_scripts
         self._css = css 
         self._head_scripts = head_scripts
-    
+ 
+        
     def _make_chart_option(self,task,chart):
         x_data = task[chart['x_key']].data
         y_data = task[chart['y_key']].data
         data_object = dict(
             datasets =  [{
-                "label": chart["xlabel"],
-                "data": x_data,
+                "label": chart["ylabel"],
+                "data": y_data,
                 "backgroundColor": "rgb(255, 99, 132)",
                 "borderColor": "rgb(255, 99, 132)",
                 "borderWidth": "1"
             }],
-            labels = y_data
+            labels = x_data
         )
 
         chart_options = {
-        "plugins": {
+            "plugins": {
                 "title": {
                     "display": True,
                     "text": chart["caption"]
@@ -138,7 +138,7 @@ class CoveoDataProcessingCard(MetaflowCard):
     @property
     def css(self):
         return '\n'.join([make_stylesheet(script) for script in self._css])
-
+            
 
     def render(self, task):
         # todo : append any images to the body and create a template for that
@@ -148,17 +148,23 @@ class CoveoDataProcessingCard(MetaflowCard):
         tables = "" 
         charts = ""
         images = ""
+        # Create Tables 
+        available_cells = [
+            ('Task Created On',task.created_at),
+            ('Task Finished At',task.finished_at),
+            ('Task Finished',task.finished),
+            ('Data Artifacts',', '.join(artifact_ids))
+        ]
         if len(self._table_cells) > 0:
-            available_cells = []
             for prop in self._table_cells:
                 if prop['key'] in artifact_ids:
                     available_cells.append(
                         (prop['name'],task[prop['key']].data)
                     )
-            if len(available_cells) > 0:
-                tables = create_table(available_cells,self._table_heading)
+
+        tables = create_table(available_cells,self._table_heading)
             
-        # check for charts 
+        # check and create charts 
         if len(self._charts) > 0 :
             chart_configs = []
             for chart in self._charts:
@@ -168,6 +174,23 @@ class CoveoDataProcessingCard(MetaflowCard):
              
             charts = chart_builder(chart_configs)
         
+        
+        # Check and create images
+        if len(self._images) > 0 :
+            for image in self._images:
+                path_str = None
+                if image['key'] != None and image['key'] != "":
+                    if image['key'] in artifact_ids:
+                        # Over here the explicit expectation is that data is of type `list`
+                        img_data = task[image['key']].data
+                        path_str = get_base64image(img_data)
+                elif image['path_key'] != None and image['path_key']!="":
+                    # Todo : resolve Path types over ehre. 
+                    path_str = task[image['path_key']].data
+                
+                images+='\n'+create_image(path_str,image['caption'])
+                
+
         render_object = dict(
             head_scripts=self.head_scripts,
             css=self.css,

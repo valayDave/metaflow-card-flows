@@ -35,24 +35,50 @@ TABLE_CELLS = [
     }
 ]
 
+IMAGES = [
+   {
+        "caption":"Image From Remote", # Caption for the image.
+        # The "key" is the key to match in Task object to retrieve the image. 
+        "key" : "",  
+        # The artifact Actual path to the image. 
+        # This can be a remote path 
+        "path_key": "remote_image"
+    },
+    {
+        "caption":"Image From na Artifact",
+        "key" : "random_image",
+        "path_key": ""
+    },
+]
 class CardPipelineFlow(FlowSpec):
 
     @step
     def start(self):
         self.next(self.train)
 
-    @card(type='coveo_data_card',options={"charts": CHART_OPTIONS,"table_cells":TABLE_CELLS,"table_heading":"Dummy Table Heading"},id='testcard')
+    @card(type='coveo_data_card',\
+        options={\
+            "charts": CHART_OPTIONS,\
+            "table_cells":TABLE_CELLS,\
+            "images":IMAGES,\
+            "table_heading":"Dummy Table Heading"\
+        },\
+        id='testcard')
     @step
     def train(self):
         import random
         from metaflow import current
+        import numpy as np
         self.wandb_url= "<WANDBURL COMES HERE>"
         self.model_wieghts_path= "<MODEL WEIGHTS COMES HERE>"
         self.exec_medium = "local"
-        self.y_1 = [random.randint(0,10) for _ in range(10)]
+        self.random_image = np.random.randn(1024,768).tolist()
+        self.remote_image = "https://picsum.photos/1024/768"
+        self.y_1 = np.random.randn(10).tolist()
         self.x_1 = [i for i in range(1,10)]
         self.y_2 = [random.randint(0,10) for _ in range(10)]
         self.x_2 = [i for i in range(1,10)]
+        
         self.next(self.end)
 
     @step
