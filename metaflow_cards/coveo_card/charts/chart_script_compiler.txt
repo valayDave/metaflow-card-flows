@@ -1,0 +1,16 @@
+
+<script>
+    const data_{{chart_id}} = {{data_object}};
+
+    const config = {
+        type: "{{chart_type}}",
+        data: data_{{chart_id}},
+        options: {
+
+        }
+    };
+    let myChart_{{chart_id}} = new Chart(
+        document.getElementById("{{chart_id}}"),
+        config
+    );
+</script>
