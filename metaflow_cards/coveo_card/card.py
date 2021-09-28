@@ -136,7 +136,6 @@ class CoveoDataProcessingCard(MetaflowCard):
 
     def render(self, task):
         # todo : append any images to the body and create a template for that
-        # todo : Create tables for the self._properties
         artifact_ids = []
         for artifact in task:
             artifact_ids.append(artifact.id)
