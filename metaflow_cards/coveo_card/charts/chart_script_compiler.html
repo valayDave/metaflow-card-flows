@@ -2,15 +2,13 @@
 <script>
     const data_{{chart_id}} = {{data_object}};
 
-    const config = {
+    const config_{{chart_id}} = {
         type: "{{chart_type}}",
         data: data_{{chart_id}},
-        options: {
-
-        }
+        options: {{chart_options}}
     };
     let myChart_{{chart_id}} = new Chart(
         document.getElementById("{{chart_id}}"),
-        config
+        config_{{chart_id}}
     );
 </script>

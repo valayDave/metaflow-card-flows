@@ -1,20 +1,20 @@
 from metaflow.plugins.card_modules.card import MetaflowCard
-import os 
-from .charts.chartjs import chart_builder,ChartOptions 
+from metaflow.plugins.card_modules import chevron as pt
+import os
+from .charts.chartjs import chart_builder,ChartConfig
 
-ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-CHART_JS_PATH = os.path.join(ABS_PATH,'chart.js')
+ABS_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+RENDER_TEMPLATE_PATH = os.path.join(ABS_DIR_PATH,'base.html')
+CHART_JS_URL = "https://cdn.jsdelivr.net/npm/chart.js"
+RENDER_TEMPLATE = None
+with open(RENDER_TEMPLATE_PATH,'r') as f:
+    RENDER_TEMPLATE = f.read()
 
-class CoveoDataProcessingCard(MetaflowCard):
-    type = 'coveo_data_card'
-    def __init__(self) -> None:
-        super().__init__()
+def make_script(url):
+    return '<script src="%s"></script>' % url
 
-    def render(self, task):
-        mustache = self._get_mustache()
-        return mustache.render("%s haha"%task.pathspec)
-
-
+def make_stylesheet(url):
+    return '<link href="%s" rel="stylesheet">' % url
 
 DEFAULT_PROPERTIES = [
     {
@@ -33,11 +33,13 @@ DEFAULT_PROPERTIES = [
 
 DEFAULT_CHARTS = [
     {
-        "caption":"", # Caption of the chart
-        "key" : "",  # The key to match in Task object
-        "xlabel": "",
-        "ylabel": ""
-
+        "caption":"This is a dummy chart", # Caption of the chart
+        "x_key" : "chart_1",  # The key to match in Task object
+        "y_key" : "chart_2",  # The key to match in Task object
+        "xlabel": "some x label",
+        "ylabel": "some x label",
+        "chart_type":"line",
+        'id' : "cid1"
     },
 ]
 
@@ -53,28 +55,106 @@ DEFAULT_IMAGES = [
     },
 ]
 
-class DummyTestCard(MetaflowCard):
-    
+class CoveoDataProcessingCard(MetaflowCard):
 
-    type='dummy_test_card'
+    type = 'coveo_data_card'
 
     def __init__(self,\
                 properties=DEFAULT_PROPERTIES,\
                 charts=DEFAULT_CHARTS,\
                 images=DEFAULT_IMAGES,
-                body_scripts = [CHART_JS_PATH,],
-                body_css = [],
-                head_css = [],
+                # These should be links to the Javascipt files
+                body_scripts = [CHART_JS_URL],
+                # These should be links to the CSS stylesheets
+                css = [],
+                # These should be links to the head script files
                 head_scripts = []
                 ):
         super().__init__()
         self._charts = charts 
         self._properties = properties
         self._images = images
+        # self._body_scripts and self._body_css will be 
         self._body_scripts = body_scripts
-        self._body_css = body_css
-        self._head_css = head_css
+        self._css = css 
         self._head_scripts = head_scripts
+    
+    def _make_chart_option(self,task,chart):
+        x_data = task[chart['x_key']].data
+        y_data = task[chart['y_key']].data
+        data_object = dict(
+            datasets =  [{
+                "label": chart["caption"],
+                "data": x_data,
+                "backgroundColor": "rgb(255, 99, 132)",
+                "borderColor": "rgb(255, 99, 132)",
+                "borderWidth": "1"
+            }],
+            labels = y_data
+        )
+
+        chart_options = {
+            "options": {
+                "scales": {
+                    "y": {
+                        "title": {
+                            "text": chart["ylabel"]
+                        }
+                    },
+                    "x": {
+                        "title": {
+                            "text": chart["xlabel"]
+                        }
+                    }
+                }
+            }
+        }
+        return ChartConfig(
+            chart_id=chart["id"],\
+            data_object=data_object,\
+            options=chart_options,\
+            chart_type=chart['chart_type']
+        )
+    
+    @property
+    def body_scripts(self):
+        return "\n".join([make_script(script) for script in self._body_scripts])
+    
+    @property
+    def head_scripts(self):
+        return "\n".join([make_script(script) for script in self._head_scripts])
+    
+    @property
+    def css(self):
+        return '\n'.join([make_stylesheet(script) for script in self._css])
+
 
     def render(self, task):
-        pass
+        # todo : append any images to the body and create a template for that
+        # todo : Create tables for the self._properties
+        artifact_ids = []
+        for artifact in task:
+            artifact_ids.append(artifact.id)
+        tables = "" 
+        charts = ""
+        images = ""
+        # check for charts 
+        if len(self._charts) > 0 :
+            chart_configs = []
+            for chart in self._charts:
+                # todo : dirty code. Fix later. 
+                if chart['x_key'] in artifact_ids and chart['y_key'] in artifact_ids:
+                    chart_configs.append(self._make_chart_option(task,chart))
+             
+            charts = chart_builder(chart_configs)
+        
+        render_object = dict(
+            head_scripts=self.head_scripts,
+            css=self.css,
+            body_scripts=self.body_scripts,
+            taskpathspec=task.pathspec,
+            body_html="\n".join([tables,charts,images]),
+        )
+        return pt.render(
+            RENDER_TEMPLATE,render_object
+        )

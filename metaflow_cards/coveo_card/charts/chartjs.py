@@ -4,41 +4,36 @@ from metaflow.plugins.card_modules import chevron as pt
 
 CURRDIR = os.path.dirname(os.path.abspath(__file__))
 # Import the individual chart template. 
-SINGLE_CHART_TEMPLATE_PATH = os.path.join(CURRDIR,'chart_script_compiler.txt')
+SINGLE_CHART_TEMPLATE_PATH = os.path.join(CURRDIR,'chart_script_compiler.html')
 CHART_SCRIPT_TEMPLATE = None
 with open(SINGLE_CHART_TEMPLATE_PATH,'r') as f:
     CHART_SCRIPT_TEMPLATE = f.read()
 
-# Import the main container template where all the charts get pasted. 
-MAIN_HTML_TEMPLATE_PATH = os.path.join(CURRDIR,'base_template.html')
-MAIN_HTML = None
-with open(MAIN_HTML_TEMPLATE_PATH,'r') as f:
-    MAIN_HTML = f.read()
-
-
 @dataclass
-class ChartOptions:
+class ChartConfig:
     chart_id:str = None
     data_object:dict = None
     chart_type:str = None
+    options:dict = None
+    
+    def __post_init__(self):
+        assert 'datasets' in self.data_object
+        assert 'labels' in self.data_object
 
 
-def chart_builder(chart_options = []):
-    """[summary]
-
-    Args:
-        chart_options (list, optional): [description]. Defaults to [].
+def chart_builder(chart_configs = []):
     """
+    Args:
+        chart_options (List[ChartOption]): 
+    """
+    # Todo Switch remote JS with minified code of chart.js
     tags = ''
-    for option in chart_options:
-        chart_kwags = asdict(option)
+    for config in chart_configs:
+        chart_kwags = asdict(config)
         chart = Chart(**chart_kwags)
         tags+=chart.chart_tag + '\n'+ chart.chart_script_tag+'\n'
 
-    return pt.render(
-        MAIN_HTML,
-        data = dict(chart_tags = tags)
-    )
+    return tags
     
     
 
@@ -47,6 +42,7 @@ class Chart:
                 chart_id=None,
                 data_object={},
                 chart_type=None,
+                options={}
                 ) -> None:
         """
         This class will easily help compile the chart 
@@ -54,7 +50,9 @@ class Chart:
         Args:
             chart_id : Id given to the chart
             data_object : Actual dataset object like the one used in chart.js
-                - For reference to what this object shoudl look like check : https://www.chartjs.org/docs/latest/api/interfaces/ChartData.html , https://www.chartjs.org/docs/latest/api/#chartdataset , 
+                - For reference to what this object shoudl look like check : 
+                    - https://www.chartjs.org/docs/latest/api/interfaces/ChartData.html , 
+                    - https://www.chartjs.org/docs/latest/api/#chartdataset , 
                 - 
             chart_type : type of the given chart. 
         """
@@ -64,10 +62,11 @@ class Chart:
         self._id = chart_id
         self._type = chart_type
         self._dataobject = data_object
+        self._options =options
     
     @property
     def chart_tag(self):
-        return '<div id="%s"><canvas id="%s"></canvas></div>' % (self._id,self._id)
+        return '<div class="row"><div class="col-xs-12"><canvas id="%s"></canvas></div></div>' % (self._id)
     
     @property
     def chart_script_tag(self):
@@ -78,5 +77,6 @@ class Chart:
                 chart_id=self._id,
                 data_object=self._dataobject,
                 chart_type = self._type,
+                chart_options=self._options
             )
         )
