@@ -20,6 +20,20 @@ CHART_OPTIONS = [
         "id" : "cid2",
     },
 ]
+TABLE_CELLS = [
+    {
+        "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
+        "key" : "model_wieghts_path"  # The key to match in Task object
+    },
+    {
+        "name":"Wandb dashboard URL", 
+        "key" :"wandb_url"  
+    },
+    {
+        "name":"Job Execution Meduim", # 
+        "key": "exec_medium"
+    }
+]
 
 class CardPipelineFlow(FlowSpec):
 
@@ -27,10 +41,14 @@ class CardPipelineFlow(FlowSpec):
     def start(self):
         self.next(self.train)
 
-    @card(type='coveo_data_card',options={"charts": CHART_OPTIONS},id='testcard')
+    @card(type='coveo_data_card',options={"charts": CHART_OPTIONS,"table_cells":TABLE_CELLS,"table_heading":"Dummy Table Heading"},id='testcard')
     @step
     def train(self):
         import random
+        from metaflow import current
+        self.wandb_url= "<WANDBURL COMES HERE>"
+        self.model_wieghts_path= "<MODEL WEIGHTS COMES HERE>"
+        self.exec_medium = "local"
         self.y_1 = [random.randint(0,10) for _ in range(10)]
         self.x_1 = [i for i in range(1,10)]
         self.y_2 = [random.randint(0,10) for _ in range(10)]

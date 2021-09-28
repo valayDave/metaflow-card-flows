@@ -4,7 +4,7 @@ from metaflow.plugins.card_modules import chevron as pt
 
 CURRDIR = os.path.dirname(os.path.abspath(__file__))
 # Import the individual chart template. 
-SINGLE_CHART_TEMPLATE_PATH = os.path.join(CURRDIR,'chart_script_compiler.html')
+SINGLE_CHART_TEMPLATE_PATH = os.path.join(CURRDIR,'template.html')
 CHART_SCRIPT_TEMPLATE = None
 with open(SINGLE_CHART_TEMPLATE_PATH,'r') as f:
     CHART_SCRIPT_TEMPLATE = f.read()

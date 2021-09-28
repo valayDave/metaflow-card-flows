@@ -2,6 +2,7 @@ from metaflow.plugins.card_modules.card import MetaflowCard
 from metaflow.plugins.card_modules import chevron as pt
 import os
 from .charts.chartjs import chart_builder,ChartConfig
+from .tables import create_table
 
 ABS_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 RENDER_TEMPLATE_PATH = os.path.join(ABS_DIR_PATH,'base.html')
@@ -60,9 +61,11 @@ class CoveoDataProcessingCard(MetaflowCard):
     type = 'coveo_data_card'
 
     def __init__(self,\
-                properties=DEFAULT_PROPERTIES,\
-                charts=DEFAULT_CHARTS,\
-                images=DEFAULT_IMAGES,
+                # todo : Give better name to `properties`
+                table_cells=[],\
+                table_heading = "Task Metadata",
+                charts=[],\
+                images=[],
                 # These should be links to the Javascipt files
                 body_scripts = [CHART_JS_URL],
                 # These should be links to the CSS stylesheets
@@ -72,7 +75,8 @@ class CoveoDataProcessingCard(MetaflowCard):
                 ):
         super().__init__()
         self._charts = charts 
-        self._properties = properties
+        self._table_cells = table_cells
+        self._table_heading = table_heading
         self._images = images
         # self._body_scripts and self._body_css will be 
         self._body_scripts = body_scripts
@@ -138,6 +142,16 @@ class CoveoDataProcessingCard(MetaflowCard):
         tables = "" 
         charts = ""
         images = ""
+        if len(self._table_cells) > 0:
+            available_cells = []
+            for prop in self._table_cells:
+                if prop['key'] in artifact_ids:
+                    available_cells.append(
+                        (prop['name'],task[prop['key']].data)
+                    )
+            if len(available_cells) > 0:
+                tables = create_table(available_cells,self._table_heading)
+            
         # check for charts 
         if len(self._charts) > 0 :
             chart_configs = []
