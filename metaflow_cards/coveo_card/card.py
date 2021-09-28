@@ -89,7 +89,7 @@ class CoveoDataProcessingCard(MetaflowCard):
         y_data = task[chart['y_key']].data
         data_object = dict(
             datasets =  [{
-                "label": chart["caption"],
+                "label": chart["xlabel"],
                 "data": x_data,
                 "backgroundColor": "rgb(255, 99, 132)",
                 "borderColor": "rgb(255, 99, 132)",
@@ -99,6 +99,12 @@ class CoveoDataProcessingCard(MetaflowCard):
         )
 
         chart_options = {
+        "plugins": {
+                "title": {
+                    "display": True,
+                    "text": chart["caption"]
+                }
+            },
             "scales": {
                     "y": {
                         "title": {
