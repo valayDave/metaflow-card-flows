@@ -19,18 +19,23 @@ def make_script(url):
 def make_stylesheet(url):
     return '<link href="%s" rel="stylesheet">' % url
 
-DEFAULT_PROPERTIES = [
+DEFAULT_TABLES = [
     {
-        "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
-        "key" : "s3_url"  # The key to match in Task object
-    },
-    {
-        "name":"Wandb dashboard URL", 
-        "key" :"wandb_url"  
-    },
-    {
-        "name":"Job Execution Meduim", # 
-        "key": "exec_medium"
+        "heading":"",
+        "cells" : [
+            {
+                "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
+                "key" : "s3_url"  # The key to match in Task object
+            },
+            {
+                "name":"Wandb dashboard URL", 
+                "key" :"wandb_url"  
+            },
+            {
+                "name":"Job Execution Meduim", # 
+                "key": "exec_medium"
+            }
+        ]
     }
 ]
 
@@ -53,18 +58,19 @@ DEFAULT_IMAGES = [
         "key" : "",  
         # Actual `key` to the path to the image to use for the 
         "path_key": "",
-        "path_type": "remote" # Can be of type remote or s3
+        "path_type": "remote" # Can be of type remote | s3
     },
 ]
+
+# TODO :
+    # Find a way to expose parameters as some arguement to decorator  
 
 class CoveoDataProcessingCard(MetaflowCard):
 
     type = 'coveo_data_card'
 
     def __init__(self,\
-                # todo : Give better name to `properties`
-                table_cells=[],\
-                table_heading = "Task Metadata",
+                tables = [],
                 charts=[],\
                 images=[],
                 # These should be links to the Javascipt files
@@ -76,8 +82,7 @@ class CoveoDataProcessingCard(MetaflowCard):
                 ):
         super().__init__()
         self._charts = charts 
-        self._table_cells = table_cells
-        self._table_heading = table_heading
+        self._tables = tables
         self._images = images
         self._body_scripts = body_scripts
         self._css = css 
@@ -87,6 +92,9 @@ class CoveoDataProcessingCard(MetaflowCard):
     def _make_chart_option(self,task,chart):
         x_data = task[chart['x_key']].data
         y_data = task[chart['y_key']].data
+        # Making complex datasets here 
+        # will require some rethinking about 
+        # the exposed `chart` datastructure. 
         data_object = dict(
             datasets =  [{
                 "label": chart["ylabel"],
@@ -149,20 +157,24 @@ class CoveoDataProcessingCard(MetaflowCard):
         charts = ""
         images = ""
         # Create Tables 
-        available_cells = [
+        table_data = dict(heading = "Task Metadata",cells=[
             ('Task Created On',task.created_at),
             ('Task Finished At',task.finished_at),
             ('Task Finished',task.finished),
             ('Data Artifacts',', '.join(artifact_ids))
-        ]
-        if len(self._table_cells) > 0:
-            for prop in self._table_cells:
-                if prop['key'] in artifact_ids:
-                    available_cells.append(
-                        (prop['name'],task[prop['key']].data)
-                    )
-
-        tables = create_table(available_cells,self._table_heading)
+        ])
+        tables = create_table(table_data['cells'],table_data['heading'])
+        if len(self._tables) > 0:
+            for table_object in self._tables:
+                curr_cells = []
+                for prop in table_object['cells']:
+                    if prop['key'] in artifact_ids:
+                        curr_cells.append(
+                            (prop['name'],task[prop['key']].data)
+                        )
+                if len(curr_cells) > 0:
+                    table = create_table(curr_cells,table_object['heading'])
+                    tables+='\n'+table    
             
         # check and create charts 
         if len(self._charts) > 0 :

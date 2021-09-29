@@ -1,4 +1,4 @@
-from metaflow import FlowSpec,card,step
+from metaflow import FlowSpec,card,step,batch,current,Parameter
 
 CHART_OPTIONS = [
     {
@@ -20,24 +20,54 @@ CHART_OPTIONS = [
         "id" : "cid2",
     },
 ]
-TABLE_CELLS = [
+TABLES = [
     {
-        "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
-        "key" : "model_wieghts_path"  # The key to match in Task object
+        "heading":"Model Metadata",
+        "cells" : [
+            {
+                "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
+                "key" : "s3_url"  # The key to match in Task object
+            },
+            {
+                "name":"Wandb dashboard URL", 
+                "key" :"wandb_url"  
+            },
+            {
+                "name":"Job Execution Meduim", # 
+                "key": "exec_medium"
+            }
+        ]
     },
     {
-        "name":"Wandb dashboard URL", 
-        "key" :"wandb_url"  
-    },
-    {
-        "name":"Job Execution Meduim", # 
-        "key": "exec_medium"
+        "heading":"Parameters",
+        "cells" : [
+            {
+                "name":"The number of rows from the dataset to use for Training.",
+                "key" : "num_rows"  # The key to match in Task object
+            },
+            {
+                "name":"Path to the browsing.parquet file in S3. This file contains browsing related data in the Coveo Challenge", 
+                "key" :"browsing_path_parquet"  
+            },
+            {
+                "name":"Batch size to use for training the model.", # 
+                "key": "batch_size"
+            },
+            {
+                "name":'Maximum number of epochs to train model.',
+                "key": "max_epochs"
+            },
+            {
+                "name":'Number of GPUs to use when training the model.',
+                "key": "num_gpus"
+            }
+        ]
     }
 ]
 
 IMAGES = [
    {
-        "caption":"Image From Remote", # Caption for the image.
+        "caption":"Image From Remote URL", # Caption for the image.
         # The "key" is the key to match in Task object to retrieve the image. 
         "key" : "",  
         # The artifact Actual path to the image. 
@@ -45,12 +75,39 @@ IMAGES = [
         "path_key": "remote_image"
     },
     {
-        "caption":"Image From na Artifact",
+        "caption":"Image from a Metaflow artifact",
         "key" : "random_image",
         "path_key": ""
     },
 ]
 class CardPipelineFlow(FlowSpec):
+    num_rows = Parameter('num-rows',default = 1000000,type=int,help='The number of rows from the dataset to use for Training.')
+
+    batch_size = Parameter('batch-size',default = 64,type=int,help='Batch size to use for training the model.')
+
+    browsing_path_parquet = Parameter(
+        'browsing-path-parquet',\
+        envvar="BROWSING_PATH_PARQUET",\
+        default=None,type=str,help='Path to the browsing.parquet file in S3. This file contains browsing related data in the Coveo Challenge'
+    )
+
+    sku_path_parquet = Parameter(
+        'sku-path-parquet',\
+        envvar="SKU_PATH_PARQUET",\
+        default=None,type=str,help='Path to the sku_to_content.parquet files in S3; This file contains unique productids.'
+    )
+
+    max_epochs = Parameter(
+        'max-epochs',\
+        envvar="MAX_EPOCHS",\
+        default=1,type=int,help='Maximum number of epochs to train model.'
+    )
+
+    num_gpus = Parameter(
+        'num-gpus',
+        envvar="NUM_GPUS",\
+        default=0,type=int,help='Number of GPUs to use when training the model.'
+    )
 
     @step
     def start(self):
@@ -59,9 +116,8 @@ class CardPipelineFlow(FlowSpec):
     @card(type='coveo_data_card',\
         options={\
             "charts": CHART_OPTIONS,\
-            "table_cells":TABLE_CELLS,\
+            "tables": TABLES,\
             "images":IMAGES,\
-            "table_heading":"Dummy Table Heading"\
         },\
         id='testcard')
     @step
@@ -69,6 +125,8 @@ class CardPipelineFlow(FlowSpec):
         import random
         from metaflow import current
         import numpy as np
+        self.params = current.parameter_names
+        print(self.params)
         self.wandb_url= "<WANDBURL COMES HERE>"
         self.model_wieghts_path= "<MODEL WEIGHTS COMES HERE>"
         self.exec_medium = "local"
