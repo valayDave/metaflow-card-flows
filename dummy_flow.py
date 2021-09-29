@@ -38,31 +38,6 @@ TABLES = [
             }
         ]
     },
-    {
-        "heading":"Parameters",
-        "cells" : [
-            {
-                "name":"The number of rows from the dataset to use for Training.",
-                "key" : "num_rows"  # The key to match in Task object
-            },
-            {
-                "name":"Path to the browsing.parquet file in S3. This file contains browsing related data in the Coveo Challenge", 
-                "key" :"browsing_path_parquet"  
-            },
-            {
-                "name":"Batch size to use for training the model.", # 
-                "key": "batch_size"
-            },
-            {
-                "name":'Maximum number of epochs to train model.',
-                "key": "max_epochs"
-            },
-            {
-                "name":'Number of GPUs to use when training the model.',
-                "key": "num_gpus"
-            }
-        ]
-    }
 ]
 
 IMAGES = [
@@ -118,6 +93,7 @@ class CardPipelineFlow(FlowSpec):
             "charts": CHART_OPTIONS,\
             "tables": TABLES,\
             "images":IMAGES,\
+            "show_parameters":True
         },\
         id='testcard')
     @step

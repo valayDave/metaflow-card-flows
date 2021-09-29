@@ -73,6 +73,8 @@ class CoveoDataProcessingCard(MetaflowCard):
                 tables = [],
                 charts=[],\
                 images=[],
+                # `show_parameters` controls if the card will contain a params table 
+                show_parameters=True,
                 # These should be links to the Javascipt files
                 body_scripts = [CHART_JS_URL],
                 # These should be links to the CSS stylesheets
@@ -81,7 +83,8 @@ class CoveoDataProcessingCard(MetaflowCard):
                 head_scripts = []
                 ):
         super().__init__()
-        self._charts = charts 
+        self._charts = charts
+        self._show_parameters = show_parameters
         self._tables = tables
         self._images = images
         self._body_scripts = body_scripts
@@ -157,13 +160,25 @@ class CoveoDataProcessingCard(MetaflowCard):
         charts = ""
         images = ""
         # Create Tables 
-        table_data = dict(heading = "Task Metadata",cells=[
+        task_table_data = dict(heading = "Task Metadata",cells=[
             ('Task Created On',task.created_at),
             ('Task Finished At',task.finished_at),
             ('Task Finished',task.finished),
             ('Data Artifacts',', '.join(artifact_ids))
         ])
-        tables = create_table(table_data['cells'],table_data['heading'])
+        tables = create_table(task_table_data['cells'],task_table_data['heading'])
+        
+        # Fast way to show parameters of a Run
+        if self._show_parameters:
+            param_ids = [p.id for p in task.parent.parent['_parameters'].task]
+            params_table_data = dict(
+                cells=[
+                    (pid,task[pid].data) for pid in param_ids
+                ],
+                heading="Flow Parameters"
+            )
+            tables+='\n'+create_table(params_table_data['cells'],params_table_data['heading'])
+
         if len(self._tables) > 0:
             for table_object in self._tables:
                 curr_cells = []
