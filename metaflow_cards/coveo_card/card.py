@@ -65,24 +65,36 @@ DEFAULT_IMAGES = [
 # TODO :
     # Find a way to expose parameters as some arguement to decorator  
 
+class HelloWorldCard(MetaflowCard):
+
+    type = "helloworld"
+
+    def render(self,task):
+        return "<html><body><p>Hello World</p></body></html>"
+
 class CoveoDataProcessingCard(MetaflowCard):
 
     type = 'coveo_data_card'
 
     def __init__(self,\
-                tables = [],
-                charts=[],\
-                images=[],
-                # `show_parameters` controls if the card will contain a params table 
-                show_parameters=True,
-                # These should be links to the Javascipt files
-                body_scripts = [CHART_JS_URL],
-                # These should be links to the CSS stylesheets
-                css = [],
-                # These should be links to the head script files
-                head_scripts = []
+                options = dict(
+                    tables = [],
+                    charts=[],\
+                    images=[],
+                    # `show_parameters` controls if the card will contain a params table 
+                    show_parameters=True,
+                    # These should be links to the Javascipt files
+                    body_scripts = [CHART_JS_URL],
+                    # These should be links to the CSS stylesheets
+                    css = [],
+                    # These should be links to the head script files
+                    head_scripts = []
+                    )
                 ):
         super().__init__()
+        charts, show_parameters, tables, \
+            images, body_scripts, \
+                css , head_scripts = self._create_options(options)
         self._charts = charts
         self._show_parameters = show_parameters
         self._tables = tables
@@ -91,6 +103,15 @@ class CoveoDataProcessingCard(MetaflowCard):
         self._css = css 
         self._head_scripts = head_scripts
  
+    def _create_options(self,options):
+        charts = [] if 'charts' not in options else options['charts']
+        show_parameters = [] if 'show_parameters' not in options else options['show_parameters']
+        tables = [] if 'tables' not in options else options['tables']
+        images = [] if 'images' not in options else options['images']
+        body_scripts = [CHART_JS_URL] if 'body_scripts' not in options  else options['body_scripts']
+        css = [] if 'css' not in options else options['css']
+        head_scripts = [] if 'head_scripts' not in options else options['head_scripts']
+        return (charts, show_parameters, tables, images, body_scripts, css, head_scripts)
         
     def _make_chart_option(self,task,chart):
         x_data = task[chart['x_key']].data

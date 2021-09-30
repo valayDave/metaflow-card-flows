@@ -88,6 +88,7 @@ class CardPipelineFlow(FlowSpec):
     def start(self):
         self.next(self.train)
 
+    # @batch(cpu=4,memory=30000,gpu=1,image='valayob/coveo-challenge-flow-image:0.4')
     @card(type='coveo_data_card',\
         options={\
             "charts": CHART_OPTIONS,\
