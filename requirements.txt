@@ -8,3 +8,4 @@ fsspec
 pytorch-lightning
 transformers
 einops
+tabulate

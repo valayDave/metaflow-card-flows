@@ -5,3 +5,5 @@ SIGIR-ecom-data-challenge/
 metaflow_card_cache
 __pycache__
 local.env
+logs
+metaflow.*
