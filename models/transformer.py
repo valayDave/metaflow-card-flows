@@ -62,3 +62,52 @@ class ProductRecommendationNet(pl.LightningModule):
         predictions,loss = self._train_step(products,mask,labels)
         self.log("test_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         
+
+def train_transformer(dataset,\
+                    sku_path_parquet,\
+                    logger_id,\
+                    last_checkpoint_name = 'last_saved_model.pt',
+                    num_gpus=0,
+                    max_epochs=10,\
+                    batch_size=64,):
+    import dataloader
+    from dataloader import ProductTokenizer
+    from prepare_dataset import read_product_ids
+    from models import ProductRecommendationNet
+    from pytorch_lightning import Trainer
+    product_ids = read_product_ids(sku_path_parquet)
+    tokenizer = ProductTokenizer(product_ids)
+    train_loader = dataloader.get_dataloader(
+        dataset['train'],batch_size=batch_size,tokenizer=tokenizer
+    )
+    validation_loader = dataloader.get_dataloader(
+        dataset['valid'],batch_size=batch_size,tokenizer=tokenizer
+    )
+    from pytorch_lightning.loggers import CSVLogger
+    logger = CSVLogger("logs", name=logger_id)
+    # trainer = Trainer(logger=logger)
+    from pytorch_lightning.callbacks import ModelCheckpoint
+    model_checkpoint = ModelCheckpoint(filename='model/checkpoints/{epoch:02d}-{val_loss:.2f}',
+                            save_weights_only=True,
+                            save_top_k=3,
+                            monitor='validation_loss')
+    gpu_dict = dict(gpus=num_gpus)
+    trainer_args = dict(
+        max_epochs=max_epochs,\
+        progress_bar_refresh_rate=25,\
+        logger=logger,
+        callbacks=[model_checkpoint]
+    )
+    if num_gpus > 0:
+        trainer_args.update(gpu_dict)
+    trainer = Trainer(
+       **trainer_args
+    )
+    
+    model = ProductRecommendationNet(
+        len(product_ids),
+    )
+    trainer.fit(model,train_loader,validation_loader)
+    print(f"Best Model Path : {model_checkpoint.best_model_path}")
+    trainer.save_checkpoint(last_checkpoint_name)
+    return model,model_checkpoint.best_model_path
