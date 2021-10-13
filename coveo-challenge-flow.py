@@ -1,5 +1,5 @@
 # Todo : Add Flow relating to the coveo challenge flow over here.
-from metaflow import FlowSpec,step,batch,S3,Parameter,batch,conda,IncludeFile
+from metaflow import FlowSpec, current,step,batch,S3,Parameter,batch,conda,IncludeFile,card
 import os
 
 class CoveoChallengeFlow(FlowSpec):
@@ -34,12 +34,13 @@ class CoveoChallengeFlow(FlowSpec):
         default=0,type=int,help='Number of GPUs to use when training the model.'
     )
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.2')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
     @step
     def start(self):
         """
         
         """
+        from metaflow import current
         assert self.browsing_path_parquet  is not None and 's3://' in self.browsing_path_parquet
         assert self.sku_path_parquet  is not None and 's3://' in self.sku_path_parquet
         # setup Dataloading and necessary pre-processing of the data
@@ -59,7 +60,7 @@ class CoveoChallengeFlow(FlowSpec):
         
         self.next(self.prepare_dataset)
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.2')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
     @step
     def prepare_dataset(self):
         """
@@ -76,59 +77,59 @@ class CoveoChallengeFlow(FlowSpec):
         self.next(self.train_model)
 
 
-    @batch(cpu=4,memory=12000,gpu=2,image='valayob/coveo-challenge-flow-image:0.2')
+    # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
+    @card(type='coveo_data_card',\
+        options={\
+            "show_parameters":True
+        },\
+        id='training_card')
     @step
     def train_model(self):
+        self.config = {
+            "MIN_C":3,
+            "SIZE":48,
+            "WINDOW":5,
+            "ITERATIONS":15,
+            "NS_EXPONENT":0.75
+        }
+        self.model,self.model_loss = self.train_gensim_model()
+        self.next(self.test_model)
+        
+    
+    def train_gensim_model(self):
+        from models.gensim import train_knn
+        return train_knn(sessions=self.dataset['train'],
+                        min_c=self.config['MIN_C'],
+                        size=self.config['SIZE'],
+                        window=self.config['WINDOW'],
+                        iterations=self.config['ITERATIONS'],
+                        ns_exponent=self.config['NS_EXPONENT'])
+    
+    def train_transformer(self):
         # todo : integrate hyper parameter input + setup + search
         # todo : Find a fast and optimal way to play around with 36M browsing events, 8M search events, 66k Products ;
         # todo : Fan this into a foreach if necessary
-        from metaflow import current
-        import dataloader
-        from dataloader import ProductTokenizer
-        from prepare_dataset import read_product_ids
-        from models import ProductRecommendationNet
-        from pytorch_lightning import Trainer
-        product_ids = read_product_ids(self.sku_path_parquet)
-        self.tokenizer = ProductTokenizer(product_ids)
-        train_loader = dataloader.get_dataloader(
-            self.dataset['train'],batch_size=self.batch_size,tokenizer=self.tokenizer
+        from models.transformer import train_transformer
+        last_saved_model = 'last_saved_model.pt'
+        model,best_model_checkpoint = train_transformer(
+            self.dataset,
+            self.sku_path_parquet,
+            current.run_id,
+            last_checkpoint_name=last_saved_model,
+            num_gpus=self.num_gpus,
+            max_epochs=self.max_epochs,
+            batch_size= self.batch_size
         )
-        validation_loader = dataloader.get_dataloader(
-            self.dataset['valid'],batch_size=self.batch_size,tokenizer=self.tokenizer
-        )
-        from pytorch_lightning.loggers import CSVLogger
-        logger = CSVLogger("logs", name=current.run_id)
-        # trainer = Trainer(logger=logger)
-        from pytorch_lightning.callbacks import ModelCheckpoint
-        model_checkpoint = ModelCheckpoint(filename='model/checkpoints/{epoch:02d}-{val_loss:.2f}',
-                                   save_weights_only=True,
-                                   save_top_k=3,
-                                   monitor='validation_loss')
-        trainer = Trainer(
-            max_epochs=self.max_epochs,\
-            progress_bar_refresh_rate=25,\
-            logger=logger,
-            gpus=self.num_gpus,
-            callbacks=[model_checkpoint]
-        )
-        
-        model = ProductRecommendationNet(
-            len(product_ids),
-        )
-        trainer.fit(model,train_loader,validation_loader)
-        print(f"Best Model Path : {model_checkpoint.best_model_path}")
-        trainer.save_checkpoint('last_saved_model.pt')
         with S3(run=self) as s3:
             saved_paths = s3.put_files([\
-                ('last_saved_model.pt','./last_saved_model.pt'),\
-                ('best_model.pt',model_checkpoint.best_model_path)
+                (last_saved_model,f'./{last_saved_model}'),\
+                ('best_model.pt',best_model_checkpoint)
             ])
             _,s3_last_url = saved_paths[0]
             _,s3_best_url = saved_paths[1]
             self.last_model_checkpoint = s3_last_url
             self.best_model_checkpoint = s3_best_url
-
-        self.next(self.test_model)
+        return model
 
     @step
     def test_model(self):
