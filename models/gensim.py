@@ -20,11 +20,13 @@ class ModelLossCallback(CallbackAny2Vec):
     def __init__(self):
         self.epoch = 0
         self.losses = []
+        self.epochs = []
 
     def on_epoch_end(self, model):
         loss = model.get_latest_training_loss()
         print('Loss after epoch {}: {}'.format(self.epoch, loss))
         self.epoch += 1
+        self.epochs.append(self.epoch)
         self.losses.append(loss)
 
 def train_product_2_vec_model(sessions: list,
@@ -57,7 +59,7 @@ def train_product_2_vec_model(sessions: list,
 
     print("# products in the space: {}".format(len(model.wv.index_to_key)))
 
-    return model.wv,loss_cb.losses
+    return model.wv,loss_cb.losses,loss_cb.epochs
 
 
 def read_sessions_from_training_file(training_file: str, K: int = None):
@@ -134,11 +136,11 @@ def train_knn(sessions,\
             iterations: int = 15,
             ns_exponent: float = 0.75):
     # train p2vec, leaving all the default hyperparameters
-    prod2vec_model,losses  = train_product_2_vec_model(sessions,
+    prod2vec_model,losses,epochs  = train_product_2_vec_model(sessions,
                                             min_c = min_c,
                                             size = size,
                                             window = window,
                                             iterations = iterations,
                                             ns_exponent = ns_exponent)
     # use model to predict
-    return prod2vec_model,losses 
+    return prod2vec_model,losses,epochs

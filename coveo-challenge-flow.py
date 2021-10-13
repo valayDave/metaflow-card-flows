@@ -2,6 +2,17 @@
 from metaflow import FlowSpec, current,step,batch,S3,Parameter,batch,conda,IncludeFile,card
 import os
 
+CHARTS = [
+    {
+        "caption":"Training Loss Chart", # Caption of the chart
+        "x_key" : "epochs",  # The key to match in Task object
+        "y_key" : "model_loss",  # The key to match in Task object
+        "xlabel": "Number Of Epochs",
+        "ylabel": "Model Loss",
+        "chart_type":"line",
+        "id" : "cid1",
+    },
+]
 class CoveoChallengeFlow(FlowSpec):
     """
     TODO : explain what the flows does.  
@@ -80,6 +91,7 @@ class CoveoChallengeFlow(FlowSpec):
     # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
     @card(type='coveo_data_card',\
         options={\
+            'charts': CHARTS,
             "show_parameters":True
         },\
         id='training_card')
@@ -92,7 +104,7 @@ class CoveoChallengeFlow(FlowSpec):
             "ITERATIONS":15,
             "NS_EXPONENT":0.75
         }
-        self.model,self.model_loss = self.train_gensim_model()
+        self.model,self.model_loss,self.epochs = self.train_gensim_model()
         self.next(self.test_model)
         
     
