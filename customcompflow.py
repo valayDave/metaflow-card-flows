@@ -29,6 +29,7 @@ class ModularComponentCardFlow(FlowSpec):
         default=0,type=int,help='Number of GPUs to use when training the model.'
     )
 
+    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.7')
     @card(type='modular_component_card',\
         timeout=10,
         id='modcard')

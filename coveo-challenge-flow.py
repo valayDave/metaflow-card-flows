@@ -2,17 +2,6 @@
 from metaflow import FlowSpec, current,step,batch,S3,Parameter,batch,conda,IncludeFile,card
 import os
 
-CHARTS = [
-    {
-        "caption":"Training Loss Chart", # Caption of the chart
-        "x_key" : "epochs",  # The key to match in Task object
-        "y_key" : "model_loss",  # The key to match in Task object
-        "xlabel": "Number Of Epochs",
-        "ylabel": "Model Loss",
-        "chart_type":"line",
-        "id" : "cid1",
-    },
-]
 class CoveoChallengeFlow(FlowSpec):
     """
     TODO : explain what the flows does.  
@@ -45,12 +34,16 @@ class CoveoChallengeFlow(FlowSpec):
         default=0,type=int,help='Number of GPUs to use when training the model.'
     )
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.7')
+    @card(type='modular_component_card',\
+        id='datasetcard')
     @step
     def start(self):
         """
         
         """
+        from metaflow_cards.coveo_card.card import \
+                Table
         from metaflow import current
         assert self.browsing_path_parquet  is not None and 's3://' in self.browsing_path_parquet
         assert self.sku_path_parquet  is not None and 's3://' in self.sku_path_parquet
@@ -66,12 +59,16 @@ class CoveoChallengeFlow(FlowSpec):
             data_path = os.path.join(s3_root, 'browsing_train.parquet')
             processed_data.to_parquet(path=data_path, engine='pyarrow')
             self.train_data_path = data_path
-
-        print(self.train_data_path)
-        
+        print("written files to s3",self.train_data_path)
+        self.add_to_card([
+            Table(heading="Dataset Preprocessing Metadata",list_of_tuples=[
+                ('Train Data Path',self.train_data_path),
+                ('Chosen Columns',', '.join(list(processed_data.columns)))
+            ])
+        ])
         self.next(self.prepare_dataset)
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.7')
     @step
     def prepare_dataset(self):
         """
@@ -88,15 +85,15 @@ class CoveoChallengeFlow(FlowSpec):
         self.next(self.train_model)
 
 
-    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
-    @card(type='coveo_data_card',\
-        options={\
-            'charts': CHARTS,
-            "show_parameters":True
-        },\
-        id='training_card')
+    @card(type='modular_component_card',\
+        id='trainingcard')
+    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.7')
     @step
     def train_model(self):
+        from metaflow_cards.coveo_card.card import \
+                LineChart,\
+                Table,\
+                Image
         self.config = {
             "MIN_C":3,
             "SIZE":48,
@@ -105,6 +102,20 @@ class CoveoChallengeFlow(FlowSpec):
             "NS_EXPONENT":0.75
         }
         self.model,self.model_loss,self.epochs = self.train_gensim_model()
+        self.add_to_card([
+            Table(heading='Hyper Paramters And Resuts',list_of_tuples=[
+                ("Embedding Size",self.config['SIZE']),
+                ("Min Loss",min(self.model_loss))
+            ]),
+            LineChart(
+                x = self.epochs,
+                y = self.model_loss,
+                xlabel='epochs',
+                ylabel='loss',
+                caption='Loss Plot'
+            )
+        ])
+
         self.next(self.test_model)
         
     

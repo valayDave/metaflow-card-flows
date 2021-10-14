@@ -344,14 +344,15 @@ class ModularCard(MetaflowCard):
             # `show_parameters` controls if the card will contain a params table 
             show_parameters=True,
             # These should be links to the Javascipt files
-            body_scripts = [CHART_JS_URL],
+        )):
+        main_opts = dict(body_scripts = [CHART_JS_URL],
             # These should be links to the CSS stylesheets
             css = [],
             # These should be links to the head script files
-            head_scripts = []
-        )):
+            head_scripts = [])
+        main_opts.update(options)
         self._show_parameters,self._body_scripts, \
-                self._css , self._head_scripts = self._create_options(options)
+                self._css , self._head_scripts = self._create_options(main_opts)
         
     
     def _create_options(self,options):
