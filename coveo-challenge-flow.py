@@ -88,7 +88,7 @@ class CoveoChallengeFlow(FlowSpec):
         self.next(self.train_model)
 
 
-    # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
+    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
     @card(type='coveo_data_card',\
         options={\
             'charts': CHARTS,
@@ -101,7 +101,7 @@ class CoveoChallengeFlow(FlowSpec):
             "MIN_C":3,
             "SIZE":48,
             "WINDOW":5,
-            "ITERATIONS":15,
+            "ITERATIONS":self.max_epochs,
             "NS_EXPONENT":0.75
         }
         self.model,self.model_loss,self.epochs = self.train_gensim_model()

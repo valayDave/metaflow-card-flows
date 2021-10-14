@@ -1,5 +1,5 @@
 import os
-from metaflow.plugins.card_modules import chevron as pt
+from metaflow.plugins.cards.card_modules import chevron as pt
 ABS_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 RENDER_TEMPLATE_PATH = os.path.join(ABS_DIR_PATH,'template.html')
 RENDER_TEMPLATE = None

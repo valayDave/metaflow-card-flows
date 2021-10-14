@@ -1,7 +1,7 @@
 import os 
 import json
 from dataclasses import dataclass, asdict
-from metaflow.plugins.card_modules import chevron as pt
+from metaflow.plugins.cards.card_modules import chevron as pt
 
 CURRDIR = os.path.dirname(os.path.abspath(__file__))
 # Import the individual chart template. 
