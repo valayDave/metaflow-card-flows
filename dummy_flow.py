@@ -86,17 +86,11 @@ class CardPipelineFlow(FlowSpec):
 
     @step
     def start(self):
-        self.next(self.train)
+        import time
+        self.xx = [i for i in range(3)]
+        self.next(self.train,foreach='xx')
 
     # @batch(cpu=4,memory=30000,gpu=1,image='valayob/coveo-challenge-flow-image:0.4')
-    @card(type='coveo_data_card',\
-        options={\
-            "charts": CHART_OPTIONS,\
-            "tables": TABLES,\
-            "images":IMAGES,\
-            "show_parameters":True
-        },\
-        id='testcard')
     @step
     def train(self):
         import random
@@ -113,7 +107,10 @@ class CardPipelineFlow(FlowSpec):
         self.x_1 = [i for i in range(1,10)]
         self.y_2 = [random.randint(0,10) for _ in range(10)]
         self.x_2 = [i for i in range(1,10)]
-        
+        self.next(self.join)
+    
+    @step
+    def join(self,inputs):
         self.next(self.end)
 
     @step

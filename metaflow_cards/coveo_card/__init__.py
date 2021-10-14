@@ -1,7 +1,6 @@
-from .card import CoveoDataProcessingCard,HelloWorldCard,ModularCard
+from .card import HelloWorldCard,ModularCard
 
 CARDS = [
     HelloWorldCard,
-    CoveoDataProcessingCard,
     ModularCard
 ]
