@@ -82,14 +82,14 @@ class CoveoChallengeFlow(FlowSpec):
         self.dataset = prepare_dataset(training_file=self.train_data_path,
                                        K=self.num_rows)
 
-        self.next(self.train_model)
+        self.next(self.gensim_model,self.torch_model)
 
 
     @card(type='modular_component_card',\
-        id='trainingcard')
-    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.7')
+        id='gensim_train_card')
+    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.8')
     @step
-    def train_model(self):
+    def gensim_model(self):
         from metaflow_cards.coveo_card.card import \
                 LineChart,\
                 Table,\
@@ -102,6 +102,9 @@ class CoveoChallengeFlow(FlowSpec):
             "NS_EXPONENT":0.75
         }
         self.model,self.model_loss,self.epochs = self.train_gensim_model()
+        self.last_model_checkpoint = None
+        self.best_model_checkpoint = None
+        self.model_name = 'Gensim Model'
         self.add_to_card([
             Table(heading='Hyper Paramters And Resuts',list_of_tuples=[
                 ("Embedding Size",self.config['SIZE']),
@@ -118,6 +121,16 @@ class CoveoChallengeFlow(FlowSpec):
 
         self.next(self.test_model)
         
+    @card(type='modular_component_card',\
+        id='torch_train_card')
+    @batch(cpu=4,memory=12000,gpu=1,image='valayob/coveo-challenge-flow-image:0.8')
+    @step
+    def torch_model(self):
+        self.model_name = 'Torch Model'
+        self.model,self.model_loss,self.epochs = self.train_transformer()
+        self.next(self.test_model)
+
+
     
     def train_gensim_model(self):
         from models.gensim import train_knn
@@ -127,20 +140,22 @@ class CoveoChallengeFlow(FlowSpec):
                         window=self.config['WINDOW'],
                         iterations=self.config['ITERATIONS'],
                         ns_exponent=self.config['NS_EXPONENT'])
+                        
     
     def train_transformer(self):
         # todo : integrate hyper parameter input + setup + search
         # todo : Find a fast and optimal way to play around with 36M browsing events, 8M search events, 66k Products ;
         # todo : Fan this into a foreach if necessary
         from models.transformer import train_transformer
+        from prepare_dataset import read_product_ids
+        product_ids = read_product_ids(self.sku_path_parquet)
         last_saved_model = 'last_saved_model.pt'
-        model,best_model_checkpoint = train_transformer(
+        model,metrics, best_model_checkpoint = train_transformer(
             self.dataset,
-            self.sku_path_parquet,
             current.run_id,
+            product_ids,
             last_checkpoint_name=last_saved_model,
-            num_gpus=self.num_gpus,
-            max_epochs=self.max_epochs,
+            max_epochs=min([10,self.max_epochs]),
             batch_size= self.batch_size
         )
         with S3(run=self) as s3:
@@ -152,10 +167,10 @@ class CoveoChallengeFlow(FlowSpec):
             _,s3_best_url = saved_paths[1]
             self.last_model_checkpoint = s3_last_url
             self.best_model_checkpoint = s3_best_url
-        return model
+        return model.state_dict(),metrics,[i for i in range(len(metrics))]
 
     @step
-    def test_model(self):
+    def test_model(self,inputs):
         self.next(self.end)
 
     @step

@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 import pytorch_lightning as pl 
 
 
@@ -23,6 +24,7 @@ class ProductRecommendationNet(pl.LightningModule):
         self.product_embedding = nn.Embedding(num_products,embedding_size)
         self.learning_rate = learning_rate
         self.num_products = num_products
+        print(nn.TransformerEncoderLayer)
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model=embedding_size, nhead=num_heads,batch_first=True),num_layers=num_layers
         )
@@ -64,18 +66,15 @@ class ProductRecommendationNet(pl.LightningModule):
         
 
 def train_transformer(dataset,\
-                    sku_path_parquet,\
                     logger_id,\
+                    product_ids,
                     last_checkpoint_name = 'last_saved_model.pt',
-                    num_gpus=0,
                     max_epochs=10,\
                     batch_size=64,):
-    import dataloader
-    from dataloader import ProductTokenizer
-    from prepare_dataset import read_product_ids
-    from models import ProductRecommendationNet
+    from . import dataloader
+    from .dataloader import ProductTokenizer
+    from .transformer import ProductRecommendationNet
     from pytorch_lightning import Trainer
-    product_ids = read_product_ids(sku_path_parquet)
     tokenizer = ProductTokenizer(product_ids)
     train_loader = dataloader.get_dataloader(
         dataset['train'],batch_size=batch_size,tokenizer=tokenizer
@@ -91,14 +90,15 @@ def train_transformer(dataset,\
                             save_weights_only=True,
                             save_top_k=3,
                             monitor='validation_loss')
-    gpu_dict = dict(gpus=num_gpus)
+    
+    gpu_dict = dict(gpus=torch.cuda.device_count())
     trainer_args = dict(
         max_epochs=max_epochs,\
         progress_bar_refresh_rate=25,\
         logger=logger,
         callbacks=[model_checkpoint]
     )
-    if num_gpus > 0:
+    if torch.cuda.device_count() > 0:
         trainer_args.update(gpu_dict)
     trainer = Trainer(
        **trainer_args
@@ -110,4 +110,4 @@ def train_transformer(dataset,\
     trainer.fit(model,train_loader,validation_loader)
     print(f"Best Model Path : {model_checkpoint.best_model_path}")
     trainer.save_checkpoint(last_checkpoint_name)
-    return model,model_checkpoint.best_model_path
+    return model,logger.experiment.metrics,model_checkpoint.best_model_path
