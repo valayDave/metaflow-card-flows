@@ -1,60 +1,5 @@
 from metaflow import FlowSpec,card,step,batch,current,Parameter
 
-CHART_OPTIONS = [
-    {
-        "caption":"This is a first dummy chart", # Caption of the chart
-        "x_key" : "x_1",  # The key to match in Task object
-        "y_key" : "y_1",  # The key to match in Task object
-        "xlabel": "some x label",
-        "ylabel": "some y label",
-        "chart_type":"line",
-        "id" : "cid1",
-    },
-    {
-        "caption":"This is a second dummy chart", # Caption of the chart
-        "x_key" : "x_2",  # The key to match in Task object
-        "y_key" : "y_2",  # The key to match in Task object
-        "xlabel": "some x label",
-        "ylabel": "some y label",
-        "chart_type":"line",
-        "id" : "cid2",
-    },
-]
-TABLES = [
-    {
-        "heading":"Model Metadata",
-        "cells" : [
-            {
-                "name":"Path of model : (S3 path to the model weights)", # Name is the name of the property to show in the table.
-                "key" : "s3_url"  # The key to match in Task object
-            },
-            {
-                "name":"Wandb dashboard URL", 
-                "key" :"wandb_url"  
-            },
-            {
-                "name":"Job Execution Meduim", # 
-                "key": "exec_medium"
-            }
-        ]
-    },
-]
-
-IMAGES = [
-   {
-        "caption":"Image From Remote URL", # Caption for the image.
-        # The "key" is the key to match in Task object to retrieve the image. 
-        "key" : "",  
-        # The artifact Actual path to the image. 
-        # This can be a remote path 
-        "path_key": "remote_image"
-    },
-    {
-        "caption":"Image from a Metaflow artifact",
-        "key" : "random_image",
-        "path_key": ""
-    },
-]
 class CardPipelineFlow(FlowSpec):
     num_rows = Parameter('num-rows',default = 1000000,type=int,help='The number of rows from the dataset to use for Training.')
 
@@ -90,9 +35,15 @@ class CardPipelineFlow(FlowSpec):
         self.xx = [i for i in range(3)]
         self.next(self.train,foreach='xx')
 
-    # @batch(cpu=4,memory=30000,gpu=1,image='valayob/coveo-challenge-flow-image:0.4')
+    @card(type='modular_component_card',\
+        timeout=10,
+        id='modcard')
     @step
     def train(self):
+        from metaflow_cards.coveo_card.card import \
+                LineChart,\
+                Table,\
+                Image
         import random
         from metaflow import current
         import numpy as np
@@ -103,10 +54,29 @@ class CardPipelineFlow(FlowSpec):
         self.exec_medium = "local"
         self.random_image = np.random.randn(1024,768).tolist()
         self.remote_image = "https://picsum.photos/1024/768"
-        self.y_1 = np.random.randn(10).tolist()
-        self.x_1 = [i for i in range(1,10)]
-        self.y_2 = [random.randint(0,10) for _ in range(10)]
-        self.x_2 = [i for i in range(1,10)]
+        self.y1 = np.random.randn(10).tolist()
+        self.x1 = [i for i in range(1,10)]
+        self.y2 = [random.randint(0,10) for _ in range(10)]
+        self.x2 = [i for i in range(1,10)]
+        self.add_to_card([
+            Table(heading='My Flows metadata',list_of_tuples=[
+                ('Wandb url',self.wandb_url),
+                ('Model Weights',self.model_wieghts_path),
+                ("Execution Medium",self.exec_medium)
+            ]),
+            LineChart(x=self.x1,
+                    y=self.y1,
+                    caption='my loss chart',
+                    xlabel='epoch',
+                    ylabel='loss'),
+            LineChart(x=self.x1,
+                    y=self.y2,
+                    caption='my accuracy chart',
+                    xlabel='epoch',
+                    ylabel='accuracy'),
+            Image(caption="My Random Image From An Array",array=np.random.randn(1024,768).tolist()),
+
+        ])
         self.next(self.join)
     
     @step
