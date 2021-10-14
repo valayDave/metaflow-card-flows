@@ -2,10 +2,9 @@ from metaflow.plugins.cards.card_modules import MetaflowCard,MetaflowCardCompone
 # from metaflow.plugins.card_modules import chevron as pt
 import os
 import json
-import uuid
-from .charts.chartjs import chart_builder,ChartConfig
-from .tables import create_table
-from .images import create_image,get_base64image
+from .tables import create_table,Table
+from .images import Image
+from .charts import LineChart
 
 ABS_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 RENDER_TEMPLATE_PATH = os.path.join(ABS_DIR_PATH,'base.html')
@@ -25,90 +24,6 @@ class HelloWorldCard(MetaflowCard):
 
     def render(self,task):
         return "<html><body><p>Hello World</p></body></html>"
-class LineChart(MetaflowCardComponent):
-    def __init__(self,\
-                x=None,\
-                y=None,\
-                xlabel=None,\
-                ylabel=None,\
-                caption=None) -> None:
-        self._x = x
-        self._y = y
-        self._xlabel = xlabel
-        self._ylabel = ylabel
-        self._caption = caption
-
-    def render(self):
-        x_data = self._x
-        y_data = self._y
-        # Making complex datasets here 
-        # will require some rethinking about 
-        # the exposed `chart` datastructure. 
-        data_object = dict(
-            datasets =  [{
-                "label": self._ylabel,
-                "data": self._y,
-                "backgroundColor": "rgb(255, 99, 132)",
-                "borderColor": "rgb(255, 99, 132)",
-                "borderWidth": "1"
-            }],
-            labels = x_data
-        )
-
-        chart_options = {
-            "plugins": {
-                "title": {
-                    "display": True,
-                    "text": self._caption
-                }
-            },
-            "scales": {
-                    "y": {
-                        "title": {
-                            "display":True,
-                            "text": self._ylabel
-                        }
-                    },
-                    "x": {
-                        "title": {
-                            "display":True,
-                            "text": self._xlabel
-                        }
-                }
-            }
-        }
-        config = ChartConfig(
-            chart_id=str(uuid.uuid4())[:4],\
-            data_object=data_object,\
-            options=chart_options,\
-            chart_type='line'
-        )
-        return chart_builder([config])
-
-
-class Table(MetaflowCardComponent):
-    def __init__(self,heading,list_of_tuples=[],) -> None:
-        self._heading =heading
-        self._list_of_tuples = list_of_tuples
-    
-    def render(self):
-        return create_table(self._list_of_tuples,self._heading)
-
-class Image(MetaflowCardComponent):
-    def __init__(self,\
-                array=None,\
-                url=None,\
-                caption=None) -> None:
-        self._array = array
-        self._url = url
-        self._caption = caption
-    
-    def render(self):
-        if self._array is not None: 
-            path_str = get_base64image(self._array)
-        elif self._url is not None:
-            path_str = self._url
-        return create_image(path_str,'' if self._caption is None else self._caption)
 
 
 class ModularCard(MetaflowCard):
@@ -178,13 +93,13 @@ class ModularCard(MetaflowCard):
         props = []
         if 'card_props' in artifact_ids:
             props = task['card_props'].data
-
+        htmlbody = "\n".join([tables,charts,images]+props)
         render_object = dict(
             head_scripts=self.head_scripts,
             css=self.css,
             body_scripts=self.body_scripts,
             taskpathspec=task.pathspec,
-            body_html="\n".join([tables,charts,images]+props),
+            body_html=htmlbody,
         )
         return pt.render(
             RENDER_TEMPLATE,render_object
