@@ -47,6 +47,12 @@ class CardPipelineFlow(FlowSpec):
         import random
         from metaflow import current
         import numpy as np
+        import pandas as pd
+        df = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
+        plot = df.plot()
+        fig = plot.get_figure()
+        fig.savefig('output.png')
+        fig.show()
         self.params = current.parameter_names
         print(self.params)
         self.wandb_url= "<WANDBURL COMES HERE>"
@@ -75,7 +81,7 @@ class CardPipelineFlow(FlowSpec):
                     xlabel='epoch',
                     ylabel='accuracy'),
             Image(caption="My Random Image From An Array",array=np.random.randn(1024,768).tolist()),
-
+            Image(caption="My Plot from Matplot Lib Code",path='output.png',format='PNG')
         ])
         self.next(self.join)
     

@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import pytorch_lightning as pl 
-
+import math
 
 class ProductPredictionLayer(nn.Module):
     def __init__(self,embedding_size,num_products):
