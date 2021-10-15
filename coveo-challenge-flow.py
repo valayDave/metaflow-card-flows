@@ -228,7 +228,7 @@ class CoveoChallengeFlow(FlowSpec):
         from prepare_dataset import read_product_ids
         product_ids = read_product_ids(self.sku_path_parquet)
         last_saved_model = 'last_saved_model.pt'
-        train_epochs = min([10,self.max_epochs])
+        train_epochs = self.max_epochs
         model,metrics, best_model_checkpoint = train_transformer(
             self.dataset,
             current.run_id,
