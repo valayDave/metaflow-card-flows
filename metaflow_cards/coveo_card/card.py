@@ -25,6 +25,12 @@ class HelloWorldCard(MetaflowCard):
     def render(self,task):
         return "<html><body><p>Hello World</p></body></html>"
 
+class Heading(MetaflowCardComponent):
+    def __init__(self,heading) -> None:
+        self._heading = heading
+
+    def render(self):
+        return """<h1>%s</h1>"""%self._heading
 
 class ModularCard(MetaflowCard):
 

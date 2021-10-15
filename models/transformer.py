@@ -19,12 +19,11 @@ class ProductPredictionLayer(nn.Module):
 
 
 class ProductRecommendationNet(pl.LightningModule):
-    def __init__(self,num_products,embedding_size=512,num_heads = 8,num_layers=8,learning_rate=1e-4) -> None:
+    def __init__(self,num_products,embedding_size=256,num_heads =4,num_layers=4,learning_rate=1e-3) -> None:
         super().__init__()
         self.product_embedding = nn.Embedding(num_products,embedding_size)
         self.learning_rate = learning_rate
         self.num_products = num_products
-        print(nn.TransformerEncoderLayer)
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model=embedding_size, nhead=num_heads,batch_first=True),num_layers=num_layers
         )
@@ -51,6 +50,7 @@ class ProductRecommendationNet(pl.LightningModule):
         products,mask,labels = batch
         predictions,loss = self._train_step(products,mask,labels)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
     
     def validation_step(self,batch,batch_nb) :
         # labels are MLM labels.
@@ -69,6 +69,12 @@ def train_transformer(dataset,\
                     logger_id,\
                     product_ids,
                     last_checkpoint_name = 'last_saved_model.pt',
+                    transformer_args = dict(
+                        embedding_size=256,
+                        num_heads =4,
+                        num_layers=4,
+                        learning_rate=1e-3
+                    ),
                     max_epochs=10,\
                     batch_size=64,):
     from . import dataloader
@@ -99,6 +105,10 @@ def train_transformer(dataset,\
         callbacks=[model_checkpoint]
     )
     if torch.cuda.device_count() > 0:
+        if torch.cuda.device_count() > 1:
+            gpu_dict.update(dict(
+                accelerator='dp'
+            ))
         trainer_args.update(gpu_dict)
     trainer = Trainer(
        **trainer_args
@@ -106,6 +116,7 @@ def train_transformer(dataset,\
     
     model = ProductRecommendationNet(
         len(product_ids),
+        **transformer_args
     )
     trainer.fit(model,train_loader,validation_loader)
     print(f"Best Model Path : {model_checkpoint.best_model_path}")
