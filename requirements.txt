@@ -1,4 +1,4 @@
-git+https://github.com/valayDave/metaflow.git@mf-cards-opinionated-components
+git+https://github.com/valayDave/metaflow.git@mf-cards-opinionated-components-current-play
 pandas
 awscli
 pyarrow

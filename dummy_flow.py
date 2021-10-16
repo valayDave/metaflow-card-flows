@@ -64,7 +64,7 @@ class CardPipelineFlow(FlowSpec):
         self.x1 = [i for i in range(1,10)]
         self.y2 = [random.randint(0,10) for _ in range(10)]
         self.x2 = [i for i in range(1,10)]
-        self.add_to_card([
+        current.card.extend([
             Table(heading='My Flows metadata',list_of_tuples=[
                 ('Wandb url',self.wandb_url),
                 ('Model Weights',self.model_wieghts_path),

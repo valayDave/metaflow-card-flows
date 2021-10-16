@@ -60,7 +60,8 @@ class CoveoChallengeFlow(FlowSpec):
             processed_data.to_parquet(path=data_path, engine='pyarrow')
             self.train_data_path = data_path
         print("written files to s3",self.train_data_path)
-        self.add_to_card([
+        from metaflow import current
+        current.card.extend([
             Table(heading="Dataset Preprocessing Metadata",list_of_tuples=[
                 ('Train Data Path',self.train_data_path),
                 ('Chosen Columns',', '.join(list(processed_data.columns)))
@@ -90,10 +91,6 @@ class CoveoChallengeFlow(FlowSpec):
     @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.8')
     @step
     def gensim_model(self):
-        from metaflow_cards.coveo_card.card import \
-                LineChart,\
-                Table,\
-                Image
         self.config = {
             "MIN_C":3,
             "SIZE":48,
@@ -105,7 +102,8 @@ class CoveoChallengeFlow(FlowSpec):
         self.last_model_checkpoint = None
         self.best_model_checkpoint = None
         self.model_name = 'Gensim Model'
-        self.add_to_card(self.gensim_summary(self))
+        from metaflow import current
+        current.card.extend(self.gensim_summary(self))
         self.next(self.test_model)
     
     
@@ -133,9 +131,6 @@ class CoveoChallengeFlow(FlowSpec):
     @batch(cpu=4,memory=30000,gpu=2,image='valayob/coveo-challenge-flow-image:0.8')
     @step
     def torch_model(self):
-        from metaflow_cards.coveo_card.card import \
-                LineChart,\
-                Table
         self.model_name = 'Torch Model'
         self.config = dict(
             embedding_size=256,
@@ -145,7 +140,8 @@ class CoveoChallengeFlow(FlowSpec):
         )
         self.model,self.model_loss,self.epochs = self.train_transformer()
         self.model_loss =  self.transform_metrics(self.model_loss)
-        self.add_to_card(self.torch_summary(self))
+        from metaflow import current
+        current.card.extend(self.torch_summary(self))
         self.next(self.test_model)
 
     @card(type='modular_component_card',\
@@ -153,16 +149,17 @@ class CoveoChallengeFlow(FlowSpec):
     @step
     def test_model(self,inputs):
         from metaflow_cards.coveo_card.card import Heading
-        self.add_to_card([
+        from metaflow import current
+        current.card.append(
             Heading("Summary Of Torch Model")
-        ])
-        self.add_to_card(self.torch_summary(
+        )
+        current.card.extend(self.torch_summary(
             inputs.torch_model
         ))
-        self.add_to_card([
+        current.card.append(
             Heading("Summary Of Gensim Model")
-        ])
-        self.add_to_card(self.gensim_summary(
+        )
+        current.card.extend(self.gensim_summary(
             inputs.gensim_model
         ))
         self.next(self.end)
@@ -228,7 +225,7 @@ class CoveoChallengeFlow(FlowSpec):
         from prepare_dataset import read_product_ids
         product_ids = read_product_ids(self.sku_path_parquet)
         last_saved_model = 'last_saved_model.pt'
-        train_epochs = self.max_epochs
+        train_epochs = 3
         model,metrics, best_model_checkpoint = train_transformer(
             self.dataset,
             current.run_id,
