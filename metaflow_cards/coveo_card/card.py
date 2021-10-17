@@ -33,18 +33,20 @@ class Heading(MetaflowCardComponent):
         return """<h1>%s</h1>"""%self._heading
 
 class ModularCard(MetaflowCard):
-
     type = 'modular_component_card'
-    def __init__(self, options=dict(
-            # `show_parameters` controls if the card will contain a params table 
-            show_parameters=True,
-            # These should be links to the Javascipt files
-        )):
+    def __init__(self,\
+                components=[],
+                options=dict(
+                    # `show_parameters` controls if the card will contain a params table 
+                    show_parameters=True,
+                    # These should be links to the Javascipt files
+                )):
         main_opts = dict(body_scripts = [CHART_JS_URL],
             # These should be links to the CSS stylesheets
             css = [],
             # These should be links to the head script files
             head_scripts = [])
+        self.components = components
         main_opts.update(options)
         self._show_parameters,self._body_scripts, \
                 self._css , self._head_scripts = self._create_options(main_opts)
@@ -97,8 +99,8 @@ class ModularCard(MetaflowCard):
             )
             tables+='\n'+create_table(params_table_data['cells'],params_table_data['heading'])
         props = []
-        if 'card_props' in artifact_ids:
-            props = task['card_props'].data
+        if len(self.components) > 0:
+            props = self.components
         htmlbody = "\n".join([tables,charts,images]+props)
         render_object = dict(
             head_scripts=self.head_scripts,
