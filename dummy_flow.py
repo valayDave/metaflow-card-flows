@@ -35,6 +35,7 @@ class CardPipelineFlow(FlowSpec):
         self.xx = [i for i in range(3)]
         self.next(self.train,foreach='xx')
 
+    # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.8')
     @card(type='modular_component_card',\
         timeout=10,
         id='modcard')
@@ -53,8 +54,6 @@ class CardPipelineFlow(FlowSpec):
         fig = plot.get_figure()
         fig.savefig('output.png')
         fig.show()
-        self.params = current.parameter_names
-        print(self.params)
         self.wandb_url= "<WANDBURL COMES HERE>"
         self.model_wieghts_path= "<MODEL WEIGHTS COMES HERE>"
         self.exec_medium = "local"

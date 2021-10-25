@@ -26,7 +26,7 @@ class HelloWorldCard(MetaflowCard):
         return "<html><body><p>Hello World</p></body></html>"
 
 class Heading(MetaflowCardComponent):
-    def __init__(self,heading) -> None:
+    def __init__(self,heading,**kwargs) -> None:
         self._heading = heading
 
     def render(self):
@@ -40,7 +40,7 @@ class ModularCard(MetaflowCard):
                     # `show_parameters` controls if the card will contain a params table 
                     show_parameters=True,
                     # These should be links to the Javascipt files
-                )):
+                ),**kwargs):
         main_opts = dict(body_scripts = [CHART_JS_URL],
             # These should be links to the CSS stylesheets
             css = [],
