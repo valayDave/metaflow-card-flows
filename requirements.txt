@@ -1,5 +1,4 @@
-git+https://github.com/valayDave/custom-metaflow-cards
-git+https://github.com/valayDave/metaflow.git@mf-cards-on-master
+git+https://github.com/valayDave/metaflow.git@mf-cards-opinionated-components-stable
 pandas
 awscli
 pyarrow

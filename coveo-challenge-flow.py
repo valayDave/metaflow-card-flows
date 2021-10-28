@@ -2,17 +2,6 @@
 from metaflow import FlowSpec, current,step,batch,S3,Parameter,batch,conda,IncludeFile,card
 import os
 
-CHARTS = [
-    {
-        "caption":"Training Loss Chart", # Caption of the chart
-        "x_key" : "epochs",  # The key to match in Task object
-        "y_key" : "model_loss",  # The key to match in Task object
-        "xlabel": "Number Of Epochs",
-        "ylabel": "Model Loss",
-        "chart_type":"line",
-        "id" : "cid1",
-    },
-]
 class CoveoChallengeFlow(FlowSpec):
     """
     TODO : explain what the flows does.  
@@ -45,12 +34,16 @@ class CoveoChallengeFlow(FlowSpec):
         default=0,type=int,help='Number of GPUs to use when training the model.'
     )
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.7')
+    @card(type='modular_component_card',\
+        id='datasetcard')
     @step
     def start(self):
         """
         
         """
+        from metaflow_cards.coveo_card.card import \
+                Table
         from metaflow import current
         assert self.browsing_path_parquet  is not None and 's3://' in self.browsing_path_parquet
         assert self.sku_path_parquet  is not None and 's3://' in self.sku_path_parquet
@@ -66,12 +59,17 @@ class CoveoChallengeFlow(FlowSpec):
             data_path = os.path.join(s3_root, 'browsing_train.parquet')
             processed_data.to_parquet(path=data_path, engine='pyarrow')
             self.train_data_path = data_path
-
-        print(self.train_data_path)
-        
+        print("written files to s3",self.train_data_path)
+        from metaflow import current
+        current.card.extend([
+            Table(heading="Dataset Preprocessing Metadata",list_of_tuples=[
+                ('Train Data Path',self.train_data_path),
+                ('Chosen Columns',', '.join(list(processed_data.columns)))
+            ])
+        ])
         self.next(self.prepare_dataset)
     
-    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.6')
+    @batch(cpu=4,memory=12000,image='valayob/coveo-challenge-flow-image:0.7')
     @step
     def prepare_dataset(self):
         """
@@ -85,28 +83,129 @@ class CoveoChallengeFlow(FlowSpec):
         self.dataset = prepare_dataset(training_file=self.train_data_path,
                                        K=self.num_rows)
 
-        self.next(self.train_model)
+        self.next(self.gensim_model,self.torch_model)
 
 
-    # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.6')
-    @card(type='coveo_data_card',\
-        options={\
-            'charts': CHARTS,
-            "show_parameters":True
-        },\
-        id='training_card')
+    @card(type='modular_component_card',\
+        id='gensim_train_card')
+    @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.8')
     @step
-    def train_model(self):
+    def gensim_model(self):
         self.config = {
             "MIN_C":3,
             "SIZE":48,
             "WINDOW":5,
-            "ITERATIONS":15,
+            "ITERATIONS":self.max_epochs,
             "NS_EXPONENT":0.75
         }
         self.model,self.model_loss,self.epochs = self.train_gensim_model()
+        self.last_model_checkpoint = None
+        self.best_model_checkpoint = None
+        self.model_name = 'Gensim Model'
+        from metaflow import current
+        current.card.extend(self.gensim_summary(self))
         self.next(self.test_model)
+    
+    
+    def gensim_summary(self,task_object):
+        from metaflow_cards.coveo_card.card import \
+                LineChart,\
+                Table,\
+                Image
+        return [
+            Table(heading="Hyper Parameters",list_of_tuples=self.create_headings(task_object.config)),
+            Table(heading='Resuts',list_of_tuples=[
+                ("Min Loss",min(task_object.model_loss))
+            ]),
+            LineChart(
+                x = task_object.epochs,
+                y = task_object.model_loss,
+                xlabel='epochs',
+                ylabel='loss',
+                caption='Loss Plot'
+            )
+        ]
         
+    @card(type='modular_component_card',\
+        id='torch_train_card')
+    @batch(cpu=4,memory=30000,gpu=2,image='valayob/coveo-challenge-flow-image:0.8')
+    @step
+    def torch_model(self):
+        self.model_name = 'Torch Model'
+        self.config = dict(
+            embedding_size=256,
+            num_heads =4,
+            num_layers=4,
+            learning_rate=1e-3
+        )
+        self.model,self.model_loss,self.epochs = self.train_transformer()
+        self.model_loss =  self.transform_metrics(self.model_loss)
+        from metaflow import current
+        current.card.extend(self.torch_summary(self))
+        self.next(self.test_model)
+
+    @card(type='modular_component_card',\
+        id='final_summary')
+    @step
+    def test_model(self,inputs):
+        from metaflow_cards.coveo_card.card import Heading
+        from metaflow import current
+        current.card.append(
+            Heading("Summary Of Torch Model")
+        )
+        current.card.extend(self.torch_summary(
+            inputs.torch_model
+        ))
+        current.card.append(
+            Heading("Summary Of Gensim Model")
+        )
+        current.card.extend(self.gensim_summary(
+            inputs.gensim_model
+        ))
+        self.next(self.end)
+
+    @step
+    def end(self):
+        print("Completed Executing the flow")
+
+
+
+    @staticmethod
+    def create_headings(table_dict:dict):
+        return [(k.replace('_',' ').title(),v) for k,v in table_dict.items()]
+
+    
+    def torch_summary(self,task_object):
+        from metaflow_cards.coveo_card.card import \
+                LineChart,\
+                Table,\
+                Image
+        return [
+            Table(heading='Hyper Parameters',
+                list_of_tuples=self.create_headings(task_object.config)
+            ),
+            Table(heading='Resuts',list_of_tuples=[
+                ("Best Model Path",task_object.best_model_checkpoint),
+                ("Last Model Path",task_object.last_model_checkpoint),
+                ("Min Loss",min(task_object.model_loss['train_loss']['step']))
+            ]),
+            LineChart(
+                x = [i for i in range(len(task_object.model_loss['train_loss']['step']))],
+                y = task_object.model_loss['train_loss']['step'],
+                xlabel='steps',
+                ylabel='Train loss',
+                caption='Training Loss Plot'
+            ),
+            LineChart(
+                x =[i for i in range(len(task_object.model_loss['validation_loss']['step']))],
+                y = task_object.model_loss['validation_loss']['step'],
+                xlabel='steps',
+                ylabel='Validation loss',
+                caption='Validation Loss Plot'
+            )
+        ]
+
+
     
     def train_gensim_model(self):
         from models.gensim import train_knn
@@ -116,20 +215,24 @@ class CoveoChallengeFlow(FlowSpec):
                         window=self.config['WINDOW'],
                         iterations=self.config['ITERATIONS'],
                         ns_exponent=self.config['NS_EXPONENT'])
+                        
     
     def train_transformer(self):
         # todo : integrate hyper parameter input + setup + search
         # todo : Find a fast and optimal way to play around with 36M browsing events, 8M search events, 66k Products ;
         # todo : Fan this into a foreach if necessary
         from models.transformer import train_transformer
+        from prepare_dataset import read_product_ids
+        product_ids = read_product_ids(self.sku_path_parquet)
         last_saved_model = 'last_saved_model.pt'
-        model,best_model_checkpoint = train_transformer(
+        train_epochs = 3
+        model,metrics, best_model_checkpoint = train_transformer(
             self.dataset,
-            self.sku_path_parquet,
             current.run_id,
+            product_ids,
+            transformer_args=self.config,
             last_checkpoint_name=last_saved_model,
-            num_gpus=self.num_gpus,
-            max_epochs=self.max_epochs,
+            max_epochs=train_epochs,
             batch_size= self.batch_size
         )
         with S3(run=self) as s3:
@@ -141,16 +244,34 @@ class CoveoChallengeFlow(FlowSpec):
             _,s3_best_url = saved_paths[1]
             self.last_model_checkpoint = s3_last_url
             self.best_model_checkpoint = s3_best_url
-        return model
+        
+        return model.state_dict(),metrics, [i for i in range(train_epochs)]
 
-    @step
-    def test_model(self):
-        self.next(self.end)
+    @staticmethod
+    def transform_metrics(metrics):
+        import itertools
+        loss_dict = dict(
+            train_loss = dict(step=[],epoch=[]),
+            validation_loss = dict(step=[],epoch=[]),
+        )
+        def add_to_dict(data_dict,loss_type,step_type):
+            main_loss = f'{loss_type}_{step_type}'
+            if main_loss in data_dict:
+                loss_dict[loss_type][step_type].append(
+                    data_dict[main_loss]
+                )
+                return True
+            return False
 
-    @step
-    def end(self):
-        print("Completed Executing the flow")
-
+        type_combs = itertools.product(
+            ['train_loss','validation_loss'],
+            ['step','epoch']
+        )
+        for metric_dict,combo in itertools.product(metrics,type_combs):
+            if add_to_dict(metric_dict,combo[0],combo[1]):
+                pass
+        return loss_dict
+    
 
 if __name__ == '__main__':
     CoveoChallengeFlow()

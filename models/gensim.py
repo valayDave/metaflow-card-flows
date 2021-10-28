@@ -20,6 +20,7 @@ class ModelLossCallback(CallbackAny2Vec):
     def __init__(self):
         self.epoch = 0
         self.losses = []
+        self.loss = 0
         self.epochs = []
 
     def on_epoch_end(self, model):
@@ -27,7 +28,8 @@ class ModelLossCallback(CallbackAny2Vec):
         print('Loss after epoch {}: {}'.format(self.epoch, loss))
         self.epoch += 1
         self.epochs.append(self.epoch)
-        self.losses.append(loss)
+        self.losses.append(loss - self.loss)
+        self.loss = loss
 
 def train_product_2_vec_model(sessions: list,
                               min_c: int = 3,
