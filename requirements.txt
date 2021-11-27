@@ -1,4 +1,3 @@
-git+https://github.com/valayDave/metaflow.git@mf-cards-opinionated-components-stable
 pandas
 awscli
 pyarrow
@@ -10,3 +9,4 @@ tabulate
 tensorflow>=2.5.0
 Pillow
 gensim>=4.0.1
+matplotlib

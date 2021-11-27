@@ -1,21 +1,9 @@
-from metaflow import FlowSpec,card,step,batch,current,Parameter
+from metaflow import FlowSpec,step,batch,current,Parameter,card
 
-class CardPipelineFlow(FlowSpec):
+class ModelTrainingFlow(FlowSpec):
     num_rows = Parameter('num-rows',default = 1000000,type=int,help='The number of rows from the dataset to use for Training.')
 
     batch_size = Parameter('batch-size',default = 64,type=int,help='Batch size to use for training the model.')
-
-    browsing_path_parquet = Parameter(
-        'browsing-path-parquet',\
-        envvar="BROWSING_PATH_PARQUET",\
-        default=None,type=str,help='Path to the browsing.parquet file in S3. This file contains browsing related data in the Coveo Challenge'
-    )
-
-    sku_path_parquet = Parameter(
-        'sku-path-parquet',\
-        envvar="SKU_PATH_PARQUET",\
-        default=None,type=str,help='Path to the sku_to_content.parquet files in S3; This file contains unique productids.'
-    )
 
     max_epochs = Parameter(
         'max-epochs',\
@@ -31,66 +19,47 @@ class CardPipelineFlow(FlowSpec):
 
     @step
     def start(self):
-        import time
-        self.xx = [i for i in range(3)]
-        self.next(self.train,foreach='xx')
+        self.next(self.train)
 
-    # @batch(cpu=4,memory=8000,image='valayob/coveo-challenge-flow-image:0.8')
-    @card(type='modular_component_card',\
-        timeout=10,
-        id='modcard')
     @step
     def train(self):
-        from metaflow_cards.coveo_card.card import \
-                LineChart,\
-                Table,\
-                Image
         import random
-        from metaflow import current
         import numpy as np
+        self.exec_medium = "local"
+        self.train_result_image,self.model_wieghts,self.logger_url = self.train_model()
+        self.loss = (np.random.randn(100)*100).tolist()
+        self.next(self.end)
+    
+    def train_model(self):
         import pandas as pd
+        import numpy as np
+        import io
+        import torch
+        import matplotlib.pyplot as plt
         df = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
         plot = df.plot()
         fig = plot.get_figure()
-        fig.savefig('output.png')
         fig.show()
-        self.wandb_url= "<WANDBURL COMES HERE>"
-        self.model_wieghts_path= "<MODEL WEIGHTS COMES HERE>"
-        self.exec_medium = "local"
-        self.random_image = np.random.randn(1024,768).tolist()
-        self.remote_image = "https://picsum.photos/1024/768"
-        self.y1 = np.random.randn(10).tolist()
-        self.x1 = [i for i in range(1,10)]
-        self.y2 = [random.randint(0,10) for _ in range(10)]
-        self.x2 = [i for i in range(1,10)]
-        current.card.extend([
-            Table(heading='My Flows metadata',list_of_tuples=[
-                ('Wandb url',self.wandb_url),
-                ('Model Weights',self.model_wieghts_path),
-                ("Execution Medium",self.exec_medium)
-            ]),
-            LineChart(x=self.x1,
-                    y=self.y1,
-                    caption='my loss chart',
-                    xlabel='epoch',
-                    ylabel='loss'),
-            LineChart(x=self.x1,
-                    y=self.y2,
-                    caption='my accuracy chart',
-                    xlabel='epoch',
-                    ylabel='accuracy'),
-            Image(caption="My Random Image From An Array",array=np.random.randn(1024,768).tolist()),
-            Image(caption="My Plot from Matplot Lib Code",path='output.png',format='PNG')
-        ])
-        self.next(self.join)
+        b = io.BytesIO()
+        plt.savefig(b, format='png')
+        return b.getvalue(),torch.randn(10,10),"<WANDBURL COMES HERE>"
     
-    @step
-    def join(self,inputs):
-        self.next(self.end)
-
+    @card(type='default',id='train_card')
     @step
     def end(self):
+        from metaflow.cards import SectionComponent,LineChartComponent
+        from metaflow import current
+        chart_component = SectionComponent(title="Loss Plot",
+            contents=[
+                LineChartComponent(
+                    data=self.loss,
+                    labels=list(range(1,len(self.loss)))
+                )
+        ])
+        current.card.append(
+            chart_component
+        )
         print("Done Computation")
 
 if __name__ == "__main__":
-    CardPipelineFlow()
+    ModelTrainingFlow()
