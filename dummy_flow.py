@@ -44,21 +44,9 @@ class ModelTrainingFlow(FlowSpec):
         plt.savefig(b, format='png')
         return b.getvalue(),torch.randn(10,10),"<WANDBURL COMES HERE>"
     
-    @card(type='default',id='train_card')
+    @card(type='coveo_run_summary_card',id='run_card')
     @step
     def end(self):
-        from metaflow.cards import SectionComponent,LineChartComponent
-        from metaflow import current
-        chart_component = SectionComponent(title="Loss Plot",
-            contents=[
-                LineChartComponent(
-                    data=self.loss,
-                    labels=list(range(1,len(self.loss)))
-                )
-        ])
-        current.card.append(
-            chart_component
-        )
         print("Done Computation")
 
 if __name__ == "__main__":
